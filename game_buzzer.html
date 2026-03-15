@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buzzer Battle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+  <style>
+    .game-container { max-width: 480px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center;}
+    .mode-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; text-align: center; cursor: pointer; transition: 0.2s; }
+    .mode-card:hover { border-color: var(--green); }
+    
+    .buzzer-area { display: flex; flex-direction: column; gap: 20px; margin-top: 30px; }
+    .buzzer { font-family: 'Poppins', sans-serif; font-size: 2rem; font-weight: 800; padding: 40px; border-radius: 20px; border: none; cursor: pointer; transition: transform 0.1s; }
+    .buzzer:active { transform: scale(0.95); }
+    #btn-a { background: var(--green); color: #000; }
+    #btn-b { background: #60a5fa; color: #000; }
+    
+    .dialog-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-top: 20px; display: none; text-align: center; animation: dialogPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .answer-btn { flex: 1; padding: 15px; font-size: 1.1rem; border-radius: 10px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+    .answer-btn:hover { border-color: var(--green); }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+
+  <div class="game-container" id="screen-start" style="text-align: center; justify-content: center;">
+    <div style="font-size: 5rem; margin-bottom: 20px;">🚨</div>
+    <div class="auth-title">Buzzer Battle</div>
+    <p style="color: var(--muted); margin-bottom: 30px; line-height: 1.5;">
+      Read the question and be the first to buzz in! You have 10 seconds.<br>
+      Correct answers: +100 pts.
+    </p>
+    <button class="btn-primary" onclick="proceedFromStart()">Start Game</button>
+    <button class="btn-secondary" id="btn-exit-start" style="margin-top: 10px;" onclick="goBack()">← Back to App</button>
+  </div>
+
+  <div class="game-container" id="screen-mode" style="display: none;">
+    <button class="btn-secondary" style="margin-bottom: 20px; align-self: flex-start;" onclick="goBack()">← Exit Game</button>
+    <div class="auth-title" style="text-align: center;">Select Mode</div>
+    <div class="mode-card" onclick="startGame('test')">
+      <h3 style="color:var(--text); font-size:1.3rem;">Test Mode</h3>
+      <p style="color:var(--muted); font-size:0.9rem; margin-top:8px;">Play for fun. Points can be collected at the end.</p>
+    </div>
+    <div class="mode-card" onclick="startGame('challenge')">
+      <h3 style="color:var(--green); font-size:1.3rem;">Challenge Mode</h3>
+      <p style="color:var(--muted); font-size:0.9rem; margin-top:8px;">Compete for real points (max 300 pts).</p>
+    </div>
+  </div>
+
+  <div class="game-container" id="screen-game" style="display: none;">
+    <button class="btn-secondary" style="margin-bottom: 20px; align-self: flex-start;" onclick="goBack()">← Exit Game</button>
+    
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="color: var(--muted); font-weight: 600; letter-spacing: 2px;" id="level-display">LEVEL 1</div>
+      <div id="buzzer-timer" style="font-size: 1.5rem; font-weight: 800; color: var(--green);">10s</div>
+    </div>
+
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:16px; padding:24px; margin-top:20px; text-align:center;">
+      <p style="font-size: 1.2rem; font-weight:600;" id="question-text">Question goes here</p>
+    </div>
+    
+    <div class="buzzer-area">
+      <button id="btn-a" class="buzzer" onclick="handleBuzz('A')">Player A<br><span style="font-size:1rem;font-weight:400">(Press 'a' or Tap)</span></button>
+      <button id="btn-b" class="buzzer" onclick="handleBuzz('B')">Player B<br><span style="font-size:1rem;font-weight:400">(Press 'b' or Tap)</span></button>
+    </div>
+
+    <div class="dialog-box" id="dialog-box">
+      <h3 id="turn-announcement" style="color:var(--green); margin-bottom: 20px;"></h3>
+      <div style="display: flex; gap: 10px;">
+        <button id="btn-true" class="answer-btn" onclick="checkAnswer(true)">True (t)</button>
+        <button id="btn-false" class="answer-btn" onclick="checkAnswer(false)">False (f)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="game-container" id="screen-result" style="display: none; text-align: center;">
+    <div style="font-size: 4rem; margin-bottom: 10px;">🏆</div>
+    <div class="auth-title">Battle Over</div>
+    <div style="font-size: 3.5rem; font-weight:800; color: var(--green); margin-bottom: 20px;" id="result-score">0 pts</div>
+    <div id="result-actions"></div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const uid = urlParams.get('uid');
+    const exhausted = urlParams.get('exhausted') === 'true';
+    const GAME_ID = 'buzzer';
+    
+    let currentMode = '';
+    let score = 0;
+    let currentLevel = 0;
+    let buzzerLocked = false;
+    let activePlayer = '';
+    let levelTimer = null;
+    let timeRemaining = 10;
+
+    const levels = [
+      { q: "Haleon is the maker of Panadol.", a: true },
+      { q: "The recommended daily water intake is 500ml.", a: false },
+      { q: "Vitamin C is synthesized by the body via sunlight.", a: false }
+    ];
+
+    window.onload = () => {
+      if (!uid) document.getElementById('btn-exit-start').style.display = 'none';
+    };
+
+    function goBack() { 
+      if (uid) window.location.href = 'index.html'; 
+      else location.reload(); 
+    }
+
+    function proceedFromStart() {
+      document.getElementById('screen-start').style.display = 'none';
+      if (uid) document.getElementById('screen-mode').style.display = 'flex';
+      else startGame('challenge');
+    }
+
+    function startGame(mode) {
+      if (exhausted && mode === 'challenge') {
+        showToast("You've already completed this game. Playing in Test Mode.");
+        currentMode = 'test';
+      } else {
+        currentMode = mode;
+      }
+      document.getElementById('screen-mode').style.display = 'none';
+      document.getElementById('screen-game').style.display = 'flex';
+      setupLevel();
+    }
+
+    function setupLevel() {
+      if (currentLevel >= levels.length) { finishGame(); return; }
+      
+      buzzerLocked = false;
+      document.getElementById('dialog-box').style.display = 'none';
+      document.getElementById('level-display').textContent = `LEVEL ${currentLevel + 1}`;
+      document.getElementById('question-text').textContent = levels[currentLevel].q;
+      
+      // Reset Timer
+      timeRemaining = 10;
+      const timerEl = document.getElementById('buzzer-timer');
+      timerEl.textContent = timeRemaining + 's';
+      timerEl.style.color = 'var(--green)';
+
+      if(levelTimer) clearInterval(levelTimer);
+      levelTimer = setInterval(() => {
+        timeRemaining--;
+        timerEl.textContent = timeRemaining + 's';
+        if(timeRemaining <= 3) timerEl.style.color = '#ef4444';
+        
+        if(timeRemaining <= 0) {
+          clearInterval(levelTimer);
+          buzzerLocked = true;
+          showToast("Time's up! No one buzzed.");
+          currentLevel++;
+          setTimeout(setupLevel, 1500);
+        }
+      }, 1000);
+    }
+
+    function handleBuzz(player) {
+      if (buzzerLocked) return;
+      buzzerLocked = true;
+      clearInterval(levelTimer); // Pause the timer!
+      
+      activePlayer = player;
+      document.getElementById('turn-announcement').innerText = `Player ${player} buzzed!`;
+      document.getElementById('dialog-box').style.display = 'block';
+    }
+
+    function checkAnswer(userAnswer) {
+      document.getElementById('dialog-box').style.display = 'none';
+      const isCorrect = (userAnswer === levels[currentLevel].a);
+      
+      if (isCorrect) {
+        showToast(`Correct! Player ${activePlayer} wins the round.`);
+        if (activePlayer === 'A') score += 100;
+      } else {
+        showToast(`Wrong! Player ${activePlayer} loses the round.`);
+      }
+
+      currentLevel++;
+      setTimeout(setupLevel, 1500);
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (document.getElementById('screen-game').style.display !== 'none') {
+        if (!buzzerLocked) {
+          if (event.key.toLowerCase() === 'a') handleBuzz('A');
+          if (event.key.toLowerCase() === 'b') handleBuzz('B');
+        } else if (document.getElementById('dialog-box').style.display === 'block') {
+          if (event.key.toLowerCase() === 't') checkAnswer(true);
+          if (event.key.toLowerCase() === 'f') checkAnswer(false);
+        }
+      }
+    });
+
+    function finishGame() {
+      document.getElementById('screen-game').style.display = 'none';
+      document.getElementById('screen-result').style.display = 'flex';
+      document.getElementById('result-score').textContent = score + " pts";
+
+      const actionsDiv = document.getElementById('result-actions');
+      if (currentMode === 'challenge') { processPoints(); } 
+      else {
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
+          <button class="btn-secondary" style="margin-top:10px;" onclick="goBack()">Play for fun (Exit)</button>
+        `;
+      }
+    }
+
+    function processPoints() {
+      if (score === 0 && currentMode === 'test') { goBack(); return; }
+
+      const actionsDiv = document.getElementById('result-actions');
+      actionsDiv.innerHTML = "Processing...";
+
+      if (uid) {
+        window.location.href = `index.html?rewardGame=${GAME_ID}&rewardPts=${score}`;
+      } else {
+        const payload = JSON.stringify({ type: "game_reward", gameId: GAME_ID, points: score, nonce: Date.now() });
+        const qr = qrcode(0, 'L'); qr.addData(payload); qr.make();
+        actionsDiv.innerHTML = `
+          <div style="background:white; padding:10px; display:inline-block; border-radius:10px; margin-bottom:10px;">${qr.createImgTag(5)}</div>
+          <p style="color:var(--muted); font-size:0.9rem;">Scan this QR with your Haleon app to collect points.</p>
+          <button class="btn-secondary" style="margin-top:20px;" onclick="location.reload()">Start New Game</button>
+        `;
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast"); toast.textContent = msg; toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1500);
+    }
+  </script>
+</body>
+</html>

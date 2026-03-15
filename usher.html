@@ -1,0 +1,1294 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Haleon — Usher Terminal</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+
+
+    <style>
+      :root {
+        --bg: #0a0d0f;
+        --surface: #111418;
+        --surface2: #181c21;
+        --border: #1e2329;
+        --green: #4ade80;
+        --green-dim: rgba(74, 222, 128, 0.12);
+        --text: #f0f4f8;
+        --muted: #6b7a8d;
+        --red: #ef4444;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        font-family: "Barlow", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 28px 18px 60px;
+      }
+
+      /* Header */
+      .header {
+        text-align: center;
+        margin-bottom: 28px;
+      }
+      .brand {
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 900;
+        font-size: 1.9rem;
+        letter-spacing: -0.5px;
+      }
+      .brand span {
+        color: var(--green);
+      }
+      .subtitle {
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        margin-top: 4px;
+      }
+
+      /* Card */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 22px;
+        margin-bottom: 18px;
+      }
+      .card-title {
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 800;
+        font-size: 1.25rem;
+        margin-bottom: 4px;
+      }
+      .card-sub {
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin-bottom: 18px;
+        line-height: 1.5;
+      }
+
+      /* Video */
+      #video-wrap {
+        width: 100%;
+        aspect-ratio: 1/1;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #000;
+        position: relative;
+        display: none;
+        margin-bottom: 14px;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      /* Scan overlay */
+      .scan-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .corner-frame {
+        position: relative;
+        width: 55%;
+        aspect-ratio: 1;
+      }
+      .corner-frame::before,
+      .corner-frame::after,
+      .corner-inner::before,
+      .corner-inner::after {
+        content: "";
+        position: absolute;
+        width: 22px;
+        height: 22px;
+        border-color: var(--green);
+        border-style: solid;
+      }
+      .corner-frame::before {
+        top: 0;
+        left: 0;
+        border-width: 3px 0 0 3px;
+        border-radius: 4px 0 0 0;
+      }
+      .corner-frame::after {
+        top: 0;
+        right: 0;
+        border-width: 3px 3px 0 0;
+        border-radius: 0 4px 0 0;
+      }
+      .corner-inner::before {
+        bottom: 0;
+        left: 0;
+        border-width: 0 0 3px 3px;
+        border-radius: 0 0 0 4px;
+      }
+      .corner-inner::after {
+        bottom: 0;
+        right: 0;
+        border-width: 0 3px 3px 0;
+        border-radius: 0 0 4px 0;
+      }
+      .scan-beam {
+        position: absolute;
+        left: 22.5%;
+        width: 55%;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--green),
+          transparent
+        );
+        animation: beam 1.8s ease-in-out infinite;
+      }
+      @keyframes beam {
+        0% {
+          top: 22%;
+        }
+        50% {
+          top: 78%;
+        }
+        100% {
+          top: 22%;
+        }
+      }
+
+      /* Status pill */
+      .status-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 0.84rem;
+        color: var(--muted);
+        margin-bottom: 12px;
+        transition: all 0.3s;
+      }
+      .status-pill.scanning {
+        border-color: rgba(74, 222, 128, 0.4);
+        color: var(--green);
+      }
+      .status-pill.success {
+        border-color: rgba(74, 222, 128, 0.5);
+        color: var(--green);
+        background: var(--green-dim);
+      }
+      .status-pill.error {
+        border-color: rgba(239, 68, 68, 0.4);
+        color: var(--red);
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex-shrink: 0;
+        transition: all 0.3s;
+      }
+      .status-pill.scanning .status-dot {
+        background: var(--green);
+        box-shadow: 0 0 8px var(--green);
+        animation: blink 1.1s ease-in-out infinite;
+      }
+      .status-pill.success .status-dot {
+        background: var(--green);
+      }
+      .status-pill.error .status-dot {
+        background: var(--red);
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      /* Buttons */
+      .btn {
+        width: 100%;
+        border: none;
+        border-radius: 12px;
+        padding: 14px;
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 700;
+        font-size: 1rem;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      .btn + .btn {
+        margin-top: 10px;
+      }
+      .btn-green {
+        background: var(--green);
+        color: #000;
+      }
+      .btn-green:hover:not(:disabled) {
+        opacity: 0.88;
+      }
+      .btn-green:disabled {
+        opacity: 0.38;
+        cursor: not-allowed;
+      }
+      .btn-outline {
+        background: transparent;
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: var(--red);
+      }
+      .btn-ghost {
+        background: var(--surface2);
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+      .btn-ghost:hover {
+        border-color: var(--muted);
+        color: var(--text);
+      }
+
+      /* ══ Member Panel ══ */
+      #member-panel {
+        display: none;
+      }
+      #member-panel.open {
+        display: block;
+      }
+
+      .member-hero {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .avatar {
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: var(--green-dim);
+        border: 2px solid rgba(74, 222, 128, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 900;
+        font-size: 1.5rem;
+        color: var(--green);
+      }
+      .member-name {
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 800;
+        font-size: 1.35rem;
+        line-height: 1.2;
+      }
+      .member-badge {
+        display: inline-block;
+        margin-top: 4px;
+        background: var(--green-dim);
+        border: 1px solid rgba(74, 222, 128, 0.3);
+        color: var(--green);
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        padding: 2px 10px;
+        border-radius: 20px;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .info-cell {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+      .info-cell.full {
+        grid-column: span 2;
+      }
+      .info-lbl {
+        font-size: 0.67rem;
+        color: var(--muted);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+      }
+      .info-val {
+        font-weight: 600;
+        font-size: 0.9rem;
+        word-break: break-all;
+        line-height: 1.3;
+      }
+
+      /* Reward block */
+      .reward-block {
+        background: var(--green-dim);
+        border: 1px solid rgba(74, 222, 128, 0.3);
+        border-radius: 14px;
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+      .reward-emoji {
+        font-size: 2.6rem;
+        flex-shrink: 0;
+      }
+      .reward-title {
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 800;
+        font-size: 1.3rem;
+        color: var(--green);
+      }
+      .reward-sub {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .pts-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 13px 16px;
+        margin-bottom: 14px;
+      }
+      .pts-col .lbl {
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-bottom: 2px;
+      }
+      .pts-col .val {
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 800;
+        font-size: 1.4rem;
+        color: var(--green);
+      }
+      .pts-col .val.minus {
+        color: var(--red);
+      }
+      .pts-arrow {
+        font-size: 1.3rem;
+        color: var(--muted);
+      }
+
+      /* Alert */
+      .alert {
+        border-radius: 12px;
+        padding: 13px 15px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        line-height: 1.5;
+        margin-top: 12px;
+        display: none;
+        white-space: pre-line;
+      }
+      .alert.show-success {
+        display: block;
+        background: rgba(74, 222, 128, 0.1);
+        border: 1px solid rgba(74, 222, 128, 0.4);
+        color: var(--green);
+      }
+      .alert.show-error {
+        display: block;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        color: var(--red);
+      }
+      .alert.show-warn {
+        display: block;
+        background: rgba(250, 204, 21, 0.08);
+        border: 1px solid rgba(250, 204, 21, 0.3);
+        color: #facc15;
+      }
+
+      /* Spinner */
+      .spin {
+        display: inline-block;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        border: 2px solid rgba(0, 0, 0, 0.2);
+        border-top-color: #000;
+        animation: sp 0.7s linear infinite;
+        vertical-align: middle;
+        margin-left: 6px;
+      }
+      @keyframes sp {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      canvas {
+        display: none;
+      }
+
+      /* ── Login overlay ── */
+      #login-overlay {
+        position: fixed; inset: 0; z-index: 999;
+        background: var(--bg);
+        display: flex; align-items: center; justify-content: center; padding: 24px;
+      }
+      #login-overlay.hidden { display: none; }
+      .login-box {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 20px; padding: 32px 26px; width: 100%; max-width: 360px;
+      }
+      .login-title {
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 900; font-size: 1.6rem; margin-bottom: 4px;
+      }
+      .login-title span { color: var(--green); }
+      .login-sub {
+        color: var(--muted); font-size: 0.75rem;
+        letter-spacing: 3px; text-transform: uppercase; margin-bottom: 28px;
+      }
+      .login-field { margin-bottom: 14px; }
+      .login-field label {
+        display: block; font-size: 0.72rem; color: var(--muted);
+        margin-bottom: 6px; letter-spacing: 1px; text-transform: uppercase;
+      }
+      .login-field input {
+        width: 100%; padding: 12px 14px;
+        background: var(--surface2); border: 1px solid var(--border);
+        border-radius: 10px; color: var(--text);
+        font-family: "Barlow", sans-serif; font-size: 0.95rem;
+        outline: none; transition: border-color 0.2s;
+      }
+      .login-field input:focus { border-color: var(--green); }
+      .login-btn {
+        width: 100%; padding: 13px; background: var(--green); color: #000;
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 800; font-size: 1.1rem; letter-spacing: 1px;
+        border: none; border-radius: 10px; cursor: pointer;
+        margin-top: 8px; transition: opacity 0.2s;
+      }
+      .login-btn:hover { opacity: 0.88; }
+      .login-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      .login-err {
+        margin-top: 12px; padding: 10px 14px;
+        background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3);
+        border-radius: 8px; color: var(--red); font-size: 0.82rem; display: none;
+      }
+      .login-err.show { display: block; }
+      .usher-user-bar {
+        display: none; align-items: center; gap: 8px;
+        font-size: 0.72rem; color: var(--muted); margin-bottom: 8px;
+        padding: 8px 12px; background: var(--surface2);
+        border: 1px solid var(--border); border-radius: 10px;
+      }
+      .usher-dot { width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0; }
+      .usher-signout { margin-left:auto; cursor:pointer; color:var(--red); }
+    </style>
+  </head>
+  <body>
+    <!-- ── Login Overlay ── -->
+    <div id="login-overlay">
+      <div class="login-box">
+        <div class="login-title">HAL<span>E</span>ON <span>PARTNERS CLUB</span></div>
+        <div class="login-sub">Usher Terminal</div>
+        <div class="login-field">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="usher@haleon.com" autocomplete="username" />
+        </div>
+        <div class="login-field">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" />
+        </div>
+        <button class="login-btn" id="login-btn">Sign In</button>
+        <div class="login-err" id="login-err"></div>
+      </div>
+    </div>
+
+    <div class="page">
+      <!-- Usher user bar -->
+      <div class="usher-user-bar" id="usher-user-bar">
+        <div class="usher-dot"></div>
+        <span id="usher-email-display"></span>
+        <span class="usher-signout" id="usher-signout">Sign out</span>
+      </div>
+
+      <!-- Header -->
+      <div class="header">
+        <div class="brand">HAL<span>E</span>ON <span>PARTNERS CLUB</span></div>
+        <div class="subtitle">Usher Redemption Terminal</div>
+      </div>
+
+      <!-- ── Scanner Card ── -->
+      <div class="card">
+        <div class="card-title">Scan Member QR Code</div>
+        <div class="card-sub">
+          Point the camera at the QR shown on the member's reward dialog or
+          membership card back
+        </div>
+
+        <div class="status-pill" id="status-pill">
+          <div class="status-dot"></div>
+          <span id="status-text">Camera not started</span>
+        </div>
+
+        <div id="video-wrap">
+          <video id="cam-video" playsinline autoplay muted></video>
+          <div class="scan-overlay">
+            <div class="corner-frame"><div class="corner-inner"></div></div>
+            <div class="scan-beam"></div>
+          </div>
+        </div>
+
+        <button
+          class="btn btn-green"
+          id="btn-cam-start"
+          onclick="startCamera()"
+        >
+          📷 Start Camera
+        </button>
+        <button
+          class="btn btn-outline"
+          id="btn-cam-stop"
+          style="display: none"
+          onclick="stopCamera()"
+        >
+          ✕ Stop Camera
+        </button>
+
+        <div class="alert" id="scan-alert"></div>
+      </div>
+
+      <!-- ── Member Info Panel ── -->
+      <div class="card" id="member-panel">
+        <div class="card-title">Member Details</div>
+
+        <!-- Hero -->
+        <div class="member-hero">
+          <div class="avatar" id="m-avatar">?</div>
+          <div style="flex:1">
+            <div class="member-name" id="m-name">—</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
+              <div class="member-badge" id="m-id">——</div>
+              <div id="m-tier-chip" style="
+                display:inline-block;font-size:0.68rem;font-weight:700;letter-spacing:2px;
+                padding:2px 10px;border-radius:20px;text-transform:uppercase;
+                background:rgba(74,222,128,0.15);color:var(--green);
+                border:1px solid rgba(74,222,128,0.35);
+              ">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info grid -->
+        <div class="info-grid">
+          <div class="info-cell">
+            <div class="info-lbl">Email</div>
+            <div class="info-val" id="m-email">—</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-lbl">Phone</div>
+            <div class="info-val" id="m-phone">—</div>
+          </div>
+          <div class="info-cell full">
+            <div class="info-lbl">Pharmacy</div>
+            <div class="info-val" id="m-pharmacy">—</div>
+          </div>
+          <div class="info-cell full">
+            <div class="info-lbl">Current Tier</div>
+            <div class="info-val" id="m-tier">—</div>
+          </div>
+        </div>
+
+        <!-- Reward picker (shown when scanning identity card QR) -->
+        <div id="reward-picker" style="display: none">
+          <div
+            style="
+              font-family: &quot;Barlow Condensed&quot;, sans-serif;
+              font-weight: 800;
+              font-size: 1rem;
+              letter-spacing: 2px;
+              color: var(--muted);
+              text-transform: uppercase;
+              margin-bottom: 12px;
+            "
+          >
+            Select Reward to Redeem
+          </div>
+          <div
+            id="picker-grid"
+            style="
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+              margin-bottom: 14px;
+            "
+          ></div>
+        </div>
+
+        <!-- Reward section (shown for reward QRs OR after picking from picker) -->
+        <div id="reward-section" style="display: none">
+          <div class="reward-block">
+            <div class="reward-emoji" id="r-icon">🎁</div>
+            <div>
+              <div class="reward-title" id="r-name">—</div>
+              <div class="reward-sub" id="r-pts-lbl">— pts required</div>
+            </div>
+          </div>
+
+          <div class="pts-row">
+            <div class="pts-col">
+              <div class="lbl">Current Balance</div>
+              <div class="val" id="r-current">—</div>
+            </div>
+            <div class="pts-arrow">→</div>
+            <div class="pts-col" style="text-align: right">
+              <div class="lbl">After Redemption</div>
+              <div class="val minus" id="r-after">—</div>
+            </div>
+          </div>
+
+          <button class="btn btn-green" id="btn-redeem" onclick="doRedeem()">
+            ✓ Confirm Redemption
+          </button>
+          <button
+            class="btn btn-ghost"
+            id="btn-back-picker"
+            onclick="backToPicker()"
+            style="margin-top: 8px; display: none"
+          >
+            ← Choose Different Reward
+          </button>
+        </div>
+
+        <!-- Alert / status -->
+        <div class="alert" id="panel-alert"></div>
+
+        <!-- Reset -->
+        <button
+          class="btn btn-ghost"
+          onclick="resetAll()"
+          style="margin-top: 10px"
+        >
+          ← Scan Another Member
+        </button>
+      </div>
+    </div>
+
+    <canvas id="qr-canvas"></canvas>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+      import {
+        getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+      import {
+        getFirestore,
+        doc,
+        getDoc,
+        updateDoc,
+      } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey:            "AIzaSyAmVVQEPpfs_K3AfqfjkAaQUF8foj-WxsU",
+        authDomain:        "haleon-partners-club.firebaseapp.com",
+        projectId:         "haleon-partners-club",
+        storageBucket:     "haleon-partners-club.firebasestorage.app",
+        messagingSenderId: "1037867331058",
+        appId:             "1:1037867331058:web:0777855bac1c681ad88f6b",
+      };
+      const fbApp = initializeApp(firebaseConfig);
+      const db    = getFirestore(fbApp);
+
+      // Expose Firebase to window
+      window._fb = { db, doc, getDoc, updateDoc };
+      window._fbReady = true;
+
+      const auth = getAuth(fbApp);
+
+      onAuthStateChanged(auth, (user) => {
+        const overlay = document.getElementById("login-overlay");
+        const userBar = document.getElementById("usher-user-bar");
+        const emailEl = document.getElementById("usher-email-display");
+        if (user) {
+          overlay.classList.add("hidden");
+          if (userBar) userBar.style.display = "flex";
+          if (emailEl) emailEl.textContent = user.email;
+        } else {
+          overlay.classList.remove("hidden");
+          if (userBar) userBar.style.display = "none";
+        }
+      });
+
+      async function doLogin() {
+        const btn   = document.getElementById("login-btn");
+        const email = document.getElementById("login-email").value.trim();
+        const pass  = document.getElementById("login-password").value;
+        const err   = document.getElementById("login-err");
+        err.classList.remove("show");
+        if (!email || !pass) {
+          err.textContent = "Please enter your email and password.";
+          err.classList.add("show"); return;
+        }
+        btn.disabled = true; btn.textContent = "Signing in…";
+        try {
+          await signInWithEmailAndPassword(auth, email, pass);
+        } catch (e) {
+          err.textContent = "Invalid email or password. Please try again.";
+          err.classList.add("show");
+          btn.disabled = false; btn.textContent = "Sign In";
+        }
+      }
+
+      async function doLogout() { await signOut(auth); resetAll(); }
+      window.doLogin  = doLogin;
+      window.doLogout = doLogout;
+
+      // Wire up login button and enter key inside module (avoids onclick scope issues)
+      document.getElementById("login-btn").addEventListener("click", doLogin);
+      document.getElementById("usher-signout").addEventListener("click", doLogout);
+      document.getElementById("login-password").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") doLogin();
+      });
+      document.getElementById("login-email").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") document.getElementById("login-password").focus();
+      });
+
+      const SHEETS_WEBHOOK =
+        "https://script.google.com/macros/s/AKfycbzXv_YPKLL1UUW00yZ07DvlCDgTB_bdf3Cqlb48QPVoG1e4BEeE5mPACs-9tnw7cYkw/exec";
+
+      const REWARDS_LIST = [
+        { key: "flask", title: "Haleon Flask", pts: 300, icon: "🧪" },
+        { key: "pen", title: "Haleon Branded Pen", pts: 100, icon: "🖊️" },
+        { key: "notebook", title: "Haleon Notebook", pts: 200, icon: "📓" },
+        { key: "mug", title: "Ceramic Mug", pts: 400, icon: "☕" },
+      ];
+
+      const ICONS = { flask: "🧪", pen: "🖊️", notebook: "📓", mug: "☕" };
+      let stream = null,
+        ticker = null,
+        busy = false,
+        scanned = null;
+      let currentMember = null; // stores full merged member object after scan
+
+      // ═══════════════════════════════════════
+      // CAMERA
+      // ═══════════════════════════════════════
+      async function startCamera() {
+        setPill("scanning", "Starting camera…");
+        document.getElementById("video-wrap").style.display = "block";
+        document.getElementById("btn-cam-start").style.display = "none";
+        document.getElementById("btn-cam-stop").style.display = "block";
+
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1280 },
+            },
+          });
+          const vid = document.getElementById("cam-video");
+          vid.srcObject = stream;
+          await vid.play();
+          setPill("scanning", "Scanning — hold QR steady");
+          ticker = setInterval(tick, 160);
+        } catch (e) {
+          stopCamera();
+          setPill("error", "Camera denied");
+          showAlert(
+            "scan-alert",
+            "error",
+            "❌ Camera access denied.\nPlease allow camera in your browser settings, then try again.",
+          );
+        }
+      }
+
+      function stopCamera() {
+        clearInterval(ticker);
+        ticker = null;
+        if (stream) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = null;
+        }
+        document.getElementById("video-wrap").style.display = "none";
+        document.getElementById("btn-cam-start").style.display = "block";
+        document.getElementById("btn-cam-stop").style.display = "none";
+      }
+
+      function tick() {
+        if (busy) return;
+        const vid = document.getElementById("cam-video");
+        const cvs = document.getElementById("qr-canvas");
+        if (!vid || vid.readyState < 2 || !vid.videoWidth) return;
+        cvs.width = vid.videoWidth;
+        cvs.height = vid.videoHeight;
+        const ctx = cvs.getContext("2d");
+        ctx.drawImage(vid, 0, 0);
+        let px;
+        try {
+          px = ctx.getImageData(0, 0, cvs.width, cvs.height);
+        } catch (e) {
+          return;
+        }
+        const result = jsQR(px.data, px.width, px.height, {
+          inversionAttempts: "dontInvert",
+        });
+        if (result && result.data) {
+          busy = true;
+          stopCamera();
+          setPill("success", "✓ QR code detected");
+          handleQR(result.data);
+        }
+      }
+
+      // ═══════════════════════════════════════
+      // QR HANDLING
+      // ═══════════════════════════════════════
+      function handleQR(raw) {
+        hideAlert("scan-alert");
+        let data;
+        try {
+          data = JSON.parse(raw);
+          if (!data.uid) throw new Error();
+        } catch (e) {
+          busy = false;
+          setPill("error", "Invalid QR");
+          showAlert(
+            "scan-alert",
+            "error",
+            "❌ Not a valid Haleon Partners Club QR code.\nPlease scan the correct QR.",
+          );
+          return;
+        }
+
+        // Expire check for reward QRs (5 min)
+        if (data.reward && data.ts && Date.now() - data.ts > 300000) {
+          busy = false;
+          setPill("error", "QR expired");
+          showAlert(
+            "scan-alert",
+            "error",
+            "⏰ This reward QR has expired.\nAsk the member to open a new one (they expire in 5 min).",
+          );
+          return;
+        }
+
+        scanned = data;
+        fetchMember(data);
+      }
+
+      async function fetchMember(qr) {
+        setPill("scanning", "Loading member data…");
+
+        // Wait for Firebase to be ready
+        let waited = 0;
+        while (!window._fbReady && waited < 3000) {
+          await new Promise((r) => setTimeout(r, 100));
+          waited += 100;
+        }
+
+        try {
+          const { db, doc, getDoc } = window._fb;
+          const snap = await getDoc(doc(db, "users", qr.uid));
+
+          if (!snap.exists()) {
+            setPill("error", "Member not found");
+            showAlert(
+              "scan-alert",
+              "error",
+              "❌ Member not found in database.",
+            );
+            busy = false;
+            return;
+          }
+
+          const live = snap.data();
+          const profile = live.profile || {};
+
+          // Merge — live DB wins over QR payload for profile fields
+          const merged = {
+            uid: qr.uid,
+            name: profile.name || qr.name || qr.user || "—",
+            email: profile.email || qr.email || "—",
+            phone: profile.phone || qr.phone || "—",
+            pharmacy: profile.pharmacy || qr.pharmacy || "—",
+            memberId: profile.memberId || qr.memberId || "——",
+            tier: live.tier || "Student",
+            score: live.score || 0,
+            // reward fields from QR
+            reward: qr.reward,
+            pts: qr.pts,
+            key: qr.key,
+          };
+
+          setPill("success", "✓ Member loaded");
+          renderPanel(merged, live.score || 0);
+        } catch (err) {
+          console.warn("Firestore error, using QR data:", err);
+          setPill("error", "⚠ Offline — QR data only");
+          const fallback = {
+            uid: qr.uid,
+            name: qr.name || qr.user || "—",
+            email: qr.email || "—",
+            phone: qr.phone || "—",
+            pharmacy: qr.pharmacy || "—",
+            memberId: qr.memberId || "——",
+            tier: "—",
+            score: null,
+            reward: qr.reward,
+            pts: qr.pts,
+            key: qr.key,
+          };
+          renderPanel(fallback, null);
+        }
+        busy = false;
+      }
+
+      // ═══════════════════════════════════════
+      // RENDER MEMBER PANEL
+      // ═══════════════════════════════════════
+      function renderPanel(m, livePts) {
+        const name = m.name || "?";
+        currentMember = { ...m, livePts };
+
+        document.getElementById("m-avatar").textContent = name
+          .charAt(0)
+          .toUpperCase();
+        document.getElementById("m-name").textContent = name;
+        document.getElementById("m-id").textContent = m.memberId || "——";
+        document.getElementById("m-email").textContent = m.email || "—";
+        document.getElementById("m-phone").textContent = m.phone || "—";
+        document.getElementById("m-pharmacy").textContent = m.pharmacy || "—";
+        document.getElementById("m-tier").textContent    = m.tier     || "—";
+        const tierChip = document.getElementById("m-tier-chip");
+        if (tierChip) tierChip.textContent = m.tier || "—";
+
+
+        const rewardSec = document.getElementById("reward-section");
+        const pickerSec = document.getElementById("reward-picker");
+        const backBtn = document.getElementById("btn-back-picker");
+        hideAlert("panel-alert");
+
+        if (m.reward) {
+          // ── Reward QR — reward already pre-selected by member ──
+          pickerSec.style.display = "none";
+          backBtn.style.display = "none";
+          rewardSec.style.display = "block";
+          document.getElementById("r-icon").textContent = ICONS[m.key] || "🎁";
+          document.getElementById("r-name").textContent = m.reward;
+          document.getElementById("r-pts-lbl").textContent =
+            (m.pts || "—") + " pts required";
+
+          const btn = document.getElementById("btn-redeem");
+          if (livePts !== null) {
+            const after = Math.max(0, livePts - (m.pts || 0));
+            document.getElementById("r-current").textContent =
+              livePts.toLocaleString() + " pts";
+            document.getElementById("r-after").textContent =
+              after.toLocaleString() + " pts";
+
+            if (livePts < (m.pts || 0)) {
+              btn.disabled = true;
+              btn.textContent = "✕ Not Enough Points";
+              showAlert(
+                "panel-alert",
+                "warn",
+                "⚠ Member has " +
+                  livePts +
+                  " pts but needs " +
+                  m.pts +
+                  " pts for this reward.",
+              );
+            } else {
+              btn.disabled = false;
+              btn.textContent = "✓ Confirm Redemption";
+            }
+          } else {
+            document.getElementById("r-current").textContent = "Offline";
+            document.getElementById("r-after").textContent = "Manual";
+            btn.disabled = false;
+            btn.textContent = "✓ Confirm (Offline)";
+            showAlert(
+              "panel-alert",
+              "warn",
+              "⚠ Offline mode — point deduction will not update automatically.",
+            );
+          }
+        } else {
+          // ── Membership card QR — show reward picker ──
+          rewardSec.style.display = "none";
+          pickerSec.style.display = "block";
+          backBtn.style.display = "none";
+          renderPickerGrid(livePts);
+          showAlert(
+            "panel-alert",
+            "success",
+            "✅ Identity verified. Select the reward the member wishes to redeem.",
+          );
+        }
+
+        const panel = document.getElementById("member-panel");
+        panel.classList.add("open");
+        setTimeout(
+          () => panel.scrollIntoView({ behavior: "smooth", block: "start" }),
+          80,
+        );
+      }
+
+      function renderPickerGrid(livePts) {
+        const grid = document.getElementById("picker-grid");
+        grid.innerHTML = "";
+        REWARDS_LIST.forEach((r) => {
+          const canRedeem = livePts !== null && livePts >= r.pts;
+          const card = document.createElement("div");
+          card.style.cssText = `
+        background:var(--surface2);border:1px solid ${canRedeem ? "rgba(74,222,128,0.4)" : "var(--border)"};
+        border-radius:12px;padding:12px 10px;text-align:center;
+        opacity:${canRedeem ? "1" : "0.45"};
+        cursor:${canRedeem ? "pointer" : "not-allowed"};
+        transition:all 0.2s;
+      `;
+          card.innerHTML = `
+        <div style="font-size:1.8rem;margin-bottom:6px;">${r.icon}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:0.9rem;line-height:1.2;margin-bottom:4px;">${r.title}</div>
+        <div style="font-size:0.72rem;color:${canRedeem ? "var(--green)" : "var(--muted)"}">${r.pts} pts</div>
+      `;
+          if (canRedeem) {
+            card.onclick = () => selectReward(r, livePts);
+            card.onmouseenter = () => (card.style.borderColor = "var(--green)");
+            card.onmouseleave = () =>
+              (card.style.borderColor = "rgba(74,222,128,0.4)");
+          }
+          grid.appendChild(card);
+        });
+      }
+
+      function selectReward(r, livePts) {
+        // Merge selected reward into scanned data
+        scanned = { ...scanned, reward: r.title, pts: r.pts, key: r.key };
+        currentMember = {
+          ...currentMember,
+          reward: r.title,
+          pts: r.pts,
+          key: r.key,
+        };
+
+        document.getElementById("reward-picker").style.display = "none";
+        document.getElementById("reward-section").style.display = "block";
+        document.getElementById("btn-back-picker").style.display = "block";
+        document.getElementById("r-icon").textContent = r.icon;
+        document.getElementById("r-name").textContent = r.title;
+        document.getElementById("r-pts-lbl").textContent =
+          r.pts + " pts required";
+
+        const after = Math.max(0, livePts - r.pts);
+        document.getElementById("r-current").textContent =
+          livePts.toLocaleString() + " pts";
+        document.getElementById("r-after").textContent =
+          after.toLocaleString() + " pts";
+
+        const btn = document.getElementById("btn-redeem");
+        btn.disabled = false;
+        btn.textContent = "✓ Confirm Redemption";
+        hideAlert("panel-alert");
+      }
+
+      function backToPicker() {
+        scanned = {
+          ...scanned,
+          reward: undefined,
+          pts: undefined,
+          key: undefined,
+        };
+        document.getElementById("reward-section").style.display = "none";
+        document.getElementById("btn-back-picker").style.display = "none";
+        document.getElementById("reward-picker").style.display = "block";
+        hideAlert("panel-alert");
+        showAlert(
+          "panel-alert",
+          "success",
+          "✅ Identity verified. Select the reward the member wishes to redeem.",
+        );
+      }
+
+      // ═══════════════════════════════════════
+      // REDEEM
+      // ═══════════════════════════════════════
+      async function doRedeem() {
+        if (!scanned) return;
+        const btn = document.getElementById("btn-redeem");
+        btn.innerHTML = 'Processing… <span class="spin"></span>';
+        btn.disabled = true;
+
+        try {
+          const { db, doc, getDoc, updateDoc } = window._fb;
+          const uid = scanned.uid;
+          const pts = scanned.pts || 0;
+
+          const snap = await getDoc(doc(db, "users", uid));
+          if (!snap.exists()) throw new Error("not-found");
+
+          const current = snap.data().score || 0;
+          if (current < pts) {
+            showAlert(
+              "panel-alert",
+              "error",
+              "⚠ Insufficient points. Redemption blocked.",
+            );
+            btn.textContent = "✕ Insufficient Points";
+            return;
+          }
+
+          const newScore = Math.max(0, current - pts);
+          const newTier =
+            newScore < 100
+              ? "Student"
+              : newScore < 300
+                ? "Community Pharmacist"
+                : "Pharmacy Owner";
+          await updateDoc(doc(db, "users", uid), {
+            score: newScore,
+            tier: newTier,
+            lastUpdated:          new Date().toISOString(),
+            lastRedemptionAt:     Date.now(),
+            lastRedemptionReward: scanned.reward,
+            lastRedemptionPts:    pts,
+          });
+
+          // Sync to Google Sheets
+          syncRedemptionToSheets(uid, scanned, snap.data(), newScore, newTier);
+
+          // Update live display
+          document.getElementById("r-current").textContent = newScore.toLocaleString() + " pts";
+          document.getElementById("r-after").textContent   = newScore.toLocaleString() + " pts";
+          document.getElementById("m-tier").textContent    = newTier;
+          const tierChip = document.getElementById("m-tier-chip");
+          if (tierChip) tierChip.textContent = newTier;
+          if (currentMember) currentMember.livePts = newScore;
+
+          showAlert("panel-alert", "success",
+            '\u2705 Confirmed! "' + scanned.reward + '" given to ' + (scanned.name || "member") +
+            '\n\u2212' + pts + ' pts deducted \u00b7 New balance: ' + newScore.toLocaleString() + ' pts'
+          );
+          btn.textContent = "\u2713 Done";
+          document.getElementById("btn-back-picker").style.display = "none";
+        } catch (err) {
+          showAlert("panel-alert", "error",
+            err.message === "not-found"
+              ? "\u274c Member not found in database."
+              : "\u274c Error connecting to server. Please check connection and try again."
+          );
+          btn.textContent = "Error";
+          btn.disabled = false;
+        }
+
+
+
+      }
+
+      // ═══════════════════════════════════════
+      // HELPERS
+      // ═══════════════════════════════════════
+      function setPill(type, text) {
+        const el = document.getElementById("status-pill");
+        el.className = "status-pill" + (type ? " " + type : "");
+        document.getElementById("status-text").textContent = text;
+      }
+
+      function showAlert(id, type, msg) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = "alert show-" + type;
+      }
+      function hideAlert(id) {
+        document.getElementById(id).className = "alert";
+      }
+
+      function syncRedemptionToSheets(
+        uid,
+        scanned,
+        liveData,
+        newScore,
+        newTier,
+      ) {
+        if (!SHEETS_WEBHOOK) return;
+        const profile = liveData.profile || {};
+        const payload = {
+          uid,
+          name: profile.name || scanned.name || "",
+          email: profile.email || scanned.email || "",
+          phone: profile.phone || scanned.phone || "",
+          pharmacy: profile.pharmacy || scanned.pharmacy || "",
+          memberId: profile.memberId || scanned.memberId || "",
+          score: newScore,
+          tier: newTier,
+          quizzesCompleted: liveData.quizzesCompleted || 0,
+          badges: (liveData.claimedBadges || []).join(", "),
+          lastUpdated: new Date().toISOString(),
+        };
+        fetch(SHEETS_WEBHOOK, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      }
+
+      function resetAll() {
+        scanned = null;
+        busy = false;
+        currentMember = null;
+        document.getElementById("member-panel").classList.remove("open");
+        document.getElementById("reward-section").style.display = "none";
+        document.getElementById("reward-picker").style.display = "none";
+        document.getElementById("btn-back-picker").style.display = "none";
+        hideAlert("panel-alert");
+        hideAlert("scan-alert");
+        setPill("", "Ready to scan");
+      }
+
+      // ── Expose to HTML onclick attributes (required for type=module scope) ──
+      window.startCamera   = startCamera;
+      window.stopCamera    = stopCamera;
+      window.doRedeem      = doRedeem;
+      window.resetAll      = resetAll;
+      window.selectReward  = selectReward;
+      window.backToPicker  = backToPicker;
+    </script>
+  </body>
+</html>

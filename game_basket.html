@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Build Your Basket</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+  <style>
+    .game-container { max-width: 480px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
+    .mode-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; text-align: center; cursor: pointer; transition: 0.2s; }
+    .mode-card:hover { border-color: var(--green); }
+    .med-grid { display: grid; grid-template-columns: 140px 140px; justify-content: center; gap: 16px; margin-top: 20px; }
+    .med-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 20px 12px; position: relative; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .med-card-icon { font-size: 3.5rem; margin-bottom: 8px; line-height: 1; }
+    .med-card-title { font-weight: 600; font-size: 0.95rem; }
+    .add-btn { position: absolute; bottom: -10px; right: -10px; width: 36px; height: 36px; background: var(--green); color: #000; border: none; border-radius: 50%; font-size: 1.5rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; box-shadow: 0 4px 8px rgba(0,0,0,0.3); line-height: 0; padding-bottom: 2px; }
+    .add-btn:active { transform: scale(0.9); }
+    .cart-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--surface); border-top: 1px solid var(--border); padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+
+  <div class="game-container" id="screen-start" style="text-align: center; justify-content: center;">
+    <div style="font-size: 5rem; margin-bottom: 20px;">🛒</div>
+    <div class="auth-title">Build Basket</div>
+    <p style="color: var(--muted); margin-bottom: 30px; line-height: 1.5;">
+      Read the patient case and select the right medications for their basket.<br>
+      Correct items: +50 pts. Wrong items: -25 pts.
+    </p>
+    <button class="btn-primary" onclick="proceedFromStart()">Start Game</button>
+    <button class="btn-secondary" id="btn-exit-start" style="margin-top: 10px;" onclick="goBack()">← Back to App</button>
+  </div>
+
+  <div class="game-container" id="screen-mode" style="display: none;">
+    <button class="btn-secondary" style="margin-bottom: 20px;" onclick="goBack()">← Exit Game</button>
+    <div class="auth-title" style="text-align: center;">Select Mode</div>
+    <div class="mode-card" onclick="startGame('test')">
+      <h3 style="color:var(--text); font-size:1.3rem;">Test Mode</h3>
+      <p style="color:var(--muted); font-size:0.85rem; margin-top:8px;">Play for fun. Points can be collected at the end.</p>
+    </div>
+    <div class="mode-card" onclick="startGame('challenge')">
+      <h3 style="color:var(--green); font-size:1.3rem;">Challenge Mode</h3>
+      <p style="color:var(--muted); font-size:0.85rem; margin-top:8px;">Compete for real points.</p>
+    </div>
+  </div>
+
+  <div class="game-container" id="screen-case" style="display: none;">
+    <button class="btn-secondary" style="margin-bottom: 20px; align-self: flex-start;" onclick="goBack()">← Exit Game</button>
+    <div class="auth-title" style="text-align: center;">Patient Case</div>
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:16px; padding:24px; font-size:1.05rem; line-height:1.6; text-align: center;">
+      "A 45-year-old patient comes in complaining of severe joint pain and a slight fever. They are looking for immediate relief."
+    </div>
+    <button class="btn-primary" style="margin-top: 24px;" onclick="showMeds()">Proceed to Shelf →</button>
+  </div>
+
+  <div class="game-container" id="screen-meds" style="display: none; padding-bottom: 80px; justify-content: flex-start; padding-top: 40px;">
+    <div class="auth-title" style="text-align: center; margin-bottom: 10px;">Build Basket</div>
+    <div class="med-grid">
+      <div class="med-card">
+        <div class="med-card-icon">💊</div>
+        <div class="med-card-title">Panadol Joint</div>
+        <button class="add-btn" onclick="addToCart(true, 'Panadol Joint')">+</button>
+      </div>
+      <div class="med-card">
+        <div class="med-card-icon">🌡️</div>
+        <div class="med-card-title">Panadol Extra</div>
+        <button class="add-btn" onclick="addToCart(true, 'Panadol Extra')">+</button>
+      </div>
+      <div class="med-card">
+        <div class="med-card-icon">🧴</div>
+        <div class="med-card-title">Antacid</div>
+        <button class="add-btn" onclick="addToCart(false, 'Antacid')">+</button>
+      </div>
+      <div class="med-card">
+        <div class="med-card-icon">💧</div>
+        <div class="med-card-title">Eye Drops</div>
+        <button class="add-btn" onclick="addToCart(false, 'Eye Drops')">+</button>
+      </div>
+    </div>
+    <div class="cart-bar">
+      <div>
+        <div style="font-size: 0.8rem; color: var(--muted);">Items in cart:</div>
+        <div style="font-weight:800; font-size:1.4rem; color:var(--green);" id="cart-count">0</div>
+      </div>
+      <button class="btn-primary" style="width: auto; padding: 10px 28px;" onclick="finishGame()">Finish</button>
+    </div>
+  </div>
+
+  <div class="game-container" id="screen-result" style="display: none; text-align: center; justify-content: center;">
+    <div style="font-size: 4rem; margin-bottom: 10px;">🏆</div>
+    <div class="auth-title" id="result-title">Game Over</div>
+    <div style="font-weight:800; font-size: 3.5rem; color: var(--green); margin-bottom: 20px; line-height: 1;" id="result-score">0 pts</div>
+    <div id="result-actions"></div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const uid = urlParams.get('uid');
+    const exhausted = urlParams.get('exhausted') === 'true';
+    const GAME_ID = 'basket';
+    
+    let currentMode = '';
+    let score = 0;
+    let items = 0;
+
+    window.onload = () => {
+      if (!uid) document.getElementById('btn-exit-start').style.display = 'none';
+    };
+
+    function goBack() { 
+      if (uid) window.location.href = 'index.html'; 
+      else location.reload(); 
+    }
+
+    function proceedFromStart() {
+      document.getElementById('screen-start').style.display = 'none';
+      if (uid) {
+        document.getElementById('screen-mode').style.display = 'flex';
+      } else {
+        startGame('challenge'); // Standalone mode skips right to game
+      }
+    }
+
+    function startGame(mode) {
+      if (exhausted && mode === 'challenge') {
+        showToast("You've already completed this game. Playing in Test Mode.");
+        currentMode = 'test';
+      } else {
+        currentMode = mode;
+      }
+      document.getElementById('screen-mode').style.display = 'none';
+      document.getElementById('screen-case').style.display = 'flex';
+    }
+
+    function showMeds() {
+      document.getElementById('screen-case').style.display = 'none';
+      document.getElementById('screen-meds').style.display = 'flex';
+    }
+
+    function addToCart(isCorrect, name) {
+      items++;
+      document.getElementById('cart-count').textContent = items;
+      if (isCorrect) score += 50;
+      else score -= 25;
+      showToast(name + " added to cart!");
+    }
+
+    function finishGame() {
+      if (score < 0) score = 0; 
+      document.getElementById('screen-meds').style.display = 'none';
+      document.getElementById('screen-result').style.display = 'flex';
+      document.getElementById('result-score').textContent = score + " pts";
+
+      const actionsDiv = document.getElementById('result-actions');
+      if (currentMode === 'challenge') {
+        processPoints();
+      } else {
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete Game</button>
+          <button class="btn-secondary" style="margin-top:10px;" onclick="goBack()">Play for fun (Exit)</button>
+        `;
+      }
+    }
+
+    function processPoints() {
+      if (score === 0 && currentMode === 'test') { goBack(); return; }
+      const actionsDiv = document.getElementById('result-actions');
+      actionsDiv.innerHTML = "Processing...";
+
+      if (uid) {
+        window.location.href = `index.html?rewardGame=${GAME_ID}&rewardPts=${score}`;
+      } else {
+        const payload = JSON.stringify({ type: "game_reward", gameId: GAME_ID, points: score, nonce: Date.now() });
+        const qr = qrcode(0, 'L');
+        qr.addData(payload);
+        qr.make();
+        actionsDiv.innerHTML = `
+          <div style="background:white; padding:10px; display:inline-block; border-radius:10px; margin-bottom:10px;">
+            ${qr.createImgTag(5)}
+          </div>
+          <p style="color:var(--muted); font-size:0.9rem;">Scan this QR with your Haleon app to collect points.</p>
+          <button class="btn-secondary" style="margin-top:20px;" onclick="location.reload()">Start New Game</button>
+        `;
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast"); toast.textContent = msg; toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1500);
+    }
+  </script>
+</body>
+</html>

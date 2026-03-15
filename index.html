@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Haleon Partners Club</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+  <script type="module">
+    import { initializeApp }                                from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword,
+             signInWithEmailAndPassword, signOut, sendPasswordResetEmail,
+             onAuthStateChanged }                           from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc,
+             updateDoc, serverTimestamp, onSnapshot }         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey:            "AIzaSyAmVVQEPpfs_K3AfqfjkAaQUF8foj-WxsU",
+      authDomain:        "haleon-partners-club.firebaseapp.com",
+      projectId:         "haleon-partners-club",
+      storageBucket:     "haleon-partners-club.firebasestorage.app",
+      messagingSenderId: "1037867331058",
+      appId:             "1:1037867331058:web:0777855bac1c681ad88f6b"
+    };
+
+    const fbApp = initializeApp(firebaseConfig);
+    const auth  = getAuth(fbApp);
+    const db    = getFirestore(fbApp);
+
+    window._fb = {
+      auth, db,
+      doc, setDoc, getDoc, updateDoc, serverTimestamp, onSnapshot,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut, sendPasswordResetEmail
+    };
+
+    onAuthStateChanged(auth, async user => {
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) overlay.style.display = 'none';
+
+      if (user) {
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          if (snap.exists()) {
+            window.bootApp(user.uid, snap.data(), false);
+          } else {
+            window.showView('view-login');
+          }
+        } catch (err) {
+          console.error('Firestore error on session restore:', err);
+          window.showView('view-login');
+        }
+      } else {
+        window.showView('view-login');
+      }
+    });
+  </script>
+</head>
+<body>
+<div class="app" id="app">
+
+  <div class="toast" id="toast"></div>
+  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998;display:none;"></canvas>
+
+  <div class="loading-overlay" id="loading-overlay">
+    <img src="assets/logo1.png" alt="Haleon Logo" class="app-logo" style="max-width: 180px;">
+    <div class="loading-spinner"></div>
+  </div>
+
+  <div class="view auth-view" id="view-login">
+    <div class="auth-logo">
+      <img src="assets/logo1.png" alt="Haleon Logo" class="app-logo" style="max-width: 200px;">
+    </div>
+    <div class="auth-title">Welcome back.</div>
+    <div class="field"><input type="email"    id="login-email" placeholder="Email address" /></div>
+    <div class="field"><input type="password" id="login-pass"  placeholder="Password" /></div>
+    
+    <div style="text-align: right; margin-bottom: 12px;">
+      <a onclick="showView('view-forgot')" style="font-size: 0.85rem; color: var(--green); cursor: pointer;">Forgot Password?</a>
+    </div>
+
+    <div class="auth-error" id="login-error"></div>
+    <button class="btn-primary" id="btn-login" onclick="doLogin()">LOGIN</button>
+    <div class="auth-switch">No account? <a onclick="showView('view-register')">Register</a></div>
+  </div>
+
+  <div class="view auth-view" id="view-forgot">
+    <div class="auth-logo">
+      <img src="assets/logo1.png" alt="Haleon Logo" class="app-logo" style="max-width: 180px;">
+      <div class="sub">Password Recovery</div>
+    </div>
+    <div class="auth-title">Reset Password.</div>
+    <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; text-align: center;">Enter your email and we'll send you a link to reset your password.</p>
+    <div class="field"><input type="email" id="forgot-email" placeholder="Email address" /></div>
+    <div class="auth-error" id="forgot-error"></div>
+    <button class="btn-primary" id="btn-forgot" onclick="doResetPassword()">RESET PASSWORD</button>
+    <div class="auth-switch"><a onclick="showView('view-login')">← Back to Login</a></div>
+  </div>
+
+  <div class="view auth-view" id="view-register">
+    <div class="auth-logo">
+      <img src="assets/logo1.png" alt="Haleon Logo" class="app-logo" style="max-width: 200px;">
+    </div>
+    <div class="auth-title">Create account.</div>
+    <div class="field"><input type="text"     id="reg-name"     placeholder="Full name" /></div>
+    <div class="field"><input type="email"    id="reg-email"    placeholder="Email address" /></div>
+    <div class="field"><input type="tel"      id="reg-phone"    placeholder="Phone number" /></div>
+    <div class="field"><input type="text"     id="reg-pharmacy" placeholder="Pharmacy name" /></div>
+    <div class="field"><input type="password" id="reg-pass"     placeholder="Password (min 6 chars)" /></div>
+    <div class="auth-error" id="reg-error"></div>
+    <button class="btn-primary" id="btn-register" onclick="doRegister()">CREATE ACCOUNT</button>
+    <div class="auth-switch">Have an account? <a onclick="showView('view-login')">Login</a></div>
+  </div>
+
+  <div class="view home-view" id="view-home">
+    <div class="top-navbar">
+      <div class="top-nav-greeting">Hi, <span id="nav-username">User</span> 👋</div>
+      <button class="logout-btn" onclick="doLogout()">Log Out</button>
+    </div>
+    <div class="home-header">
+      <img src="assets/logo3.png" alt="Haleon Logo" class="app-logo" style="max-width: 160px; margin-bottom: 18px;">
+      
+      <div class="points-big" id="pts-display">0 Points</div>
+      <div class="tier-badge" id="tier-badge-home">Student Tier</div>
+      <div class="progress-wrap">
+        <svg width="140" height="140" viewBox="0 0 140 140">
+          <circle class="progress-track" cx="70" cy="70" r="60"/>
+          <circle class="progress-fill" id="progress-ring" cx="70" cy="70" r="60"
+            stroke-dasharray="376.99" stroke-dashoffset="376.99"/>
+        </svg>
+        <div class="progress-center">
+          <div class="progress-pct" id="progress-pct">0%</div>
+          <div class="progress-label">Quiz Completion</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Your Badges</div>
+      <div class="badges-row">
+        <div class="badge-chip locked" id="badge-0" onclick="tryClaimBadge(0)">
+          <div class="badge-icon" style="background:rgba(74,222,128,0.06)">❤️</div>
+          <div class="badge-name">Health Advocate</div>
+          <div class="badge-pts">200 pts</div>
+        </div>
+        <div class="badge-chip locked" id="badge-1" onclick="tryClaimBadge(1)">
+          <div class="badge-icon" style="background:rgba(74,222,128,0.06)">🏃</div>
+          <div class="badge-name">Daily Mover</div>
+          <div class="badge-pts">400 pts</div>
+        </div>
+        <div class="badge-chip locked" id="badge-2" onclick="tryClaimBadge(2)">
+          <div class="badge-icon" style="background:rgba(74,222,128,0.06)">🌿</div>
+          <div class="badge-name">Wellness Leader</div>
+          <div class="badge-pts">600 pts</div>
+        </div>
+      </div>
+    </div>
+    
+<div class="section-title" style="padding: 0 24px;">Games Hub</div>
+      <div class="quiz-grid" id="games-grid">
+        <div class="quiz-grid-card" onclick="openGame('game_basket.html', 'basket')">
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa; color:#60a5fa;">🛒</div>
+          <div class="quiz-grid-label">Build Basket</div>
+          <div class="quiz-grid-status" id="gstatus-basket">Play</div>
+        </div>
+        <div class="quiz-grid-card" onclick="openGame('game_myth.html', 'myth')">
+          <div class="quiz-grid-num" style="background:rgba(244, 114, 182, 0.15); border-color:#f472b6; color:#f472b6;">🤔</div>
+          <div class="quiz-grid-label">Myth vs Fact</div>
+          <div class="quiz-grid-status" id="gstatus-myth">Play</div>
+        </div>
+        <div class="quiz-grid-card" onclick="openGame('game_buzzer.html', 'buzzer')">
+          <div class="quiz-grid-num" style="background:rgba(250, 204, 21, 0.15); border-color:#facc15; color:#facc15;">🚨</div>
+          <div class="quiz-grid-label">Buzzer Battle</div>
+          <div class="quiz-grid-status" id="gstatus-buzzer">Play</div>
+        </div>
+        <div class="quiz-grid-card" onclick="openGame('game_memory.html', 'memory')">
+          <div class="quiz-grid-num" style="background:rgba(74, 222, 128, 0.15); border-color:var(--green); color:var(--green);">🧠</div>
+          <div class="quiz-grid-label">Memory Challenge</div>
+          <div class="quiz-grid-status" id="gstatus-memory">Play</div>
+        </div>
+        <div class="quiz-grid-card" onclick="openGame('game_catch.html', 'catch')">
+          <div class="quiz-grid-num" style="background:rgba(167, 139, 250, 0.15); border-color:#a78bfa; color:#a78bfa;">🧺</div>
+          <div class="quiz-grid-label">Catch & Win</div>
+          <div class="quiz-grid-status" id="gstatus-catch">Play</div>
+        </div>
+        <div class="quiz-grid-card" onclick="openGame('game_prescription.html', 'prescription')">
+          <div class="quiz-grid-num" style="background:rgba(248, 113, 113, 0.15); border-color:#f87171; color:#f87171;">📋</div>
+          <div class="quiz-grid-label">Rx Challenge</div>
+          <div class="quiz-grid-status" id="gstatus-prescription">Play</div>
+        </div>
+        <div class="quiz-grid-card" onclick="openGame('game_placement.html', 'placement')">
+          <div class="quiz-grid-num" style="background:rgba(56, 189, 248, 0.15); border-color:#38bdf8; color:#38bdf8;">🏬</div>
+          <div class="quiz-grid-label">Best Place</div>
+          <div class="quiz-grid-status" id="gstatus-placement">Play</div>
+        </div>
+      </div>
+
+    <div class="section" style="margin-top:20px">
+      <div class="section-title">Highlights</div>
+      <div class="carousel-wrap">
+        <div class="carousel-track" id="carousel-track">
+          <div class="carousel-slide" style="background:linear-gradient(135deg,#0d2818,#1a4a2e)">
+            <div class="carousel-text">
+              <div class="carousel-title">Boost Your Wellness</div>
+              <div class="carousel-sub">Complete quizzes to earn more points</div>
+            </div>
+            <div class="carousel-emoji">💊</div>
+          </div>
+          <div class="carousel-slide" style="background:linear-gradient(135deg,#1a1a0d,#3a3a10)">
+            <div class="carousel-text">
+              <div class="carousel-title">Exclusive Rewards</div>
+              <div class="carousel-sub">Redeem points for premium products</div>
+            </div>
+            <div class="carousel-emoji">🎁</div>
+          </div>
+          <div class="carousel-slide" style="background:linear-gradient(135deg,#0d1a2e,#1a3a5a)">
+            <div class="carousel-text">
+              <div class="carousel-title">Reach Top Tier</div>
+              <div class="carousel-sub">Unlock elite benefits and consultations</div>
+            </div>
+            <div class="carousel-emoji">🏆</div>
+          </div>
+        </div>
+        <div class="carousel-dots">
+          <span class="dot active" onclick="goToSlide(0)"></span>
+          <span class="dot" onclick="goToSlide(1)"></span>
+          <span class="dot" onclick="goToSlide(2)"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" style="margin-top:20px;padding-bottom:100px">
+      <div class="section-title">Rewards Preview</div>
+      <div class="rewards-grid">
+        <div class="reward-card">
+          <div class="reward-img">🧪</div>
+          <div class="reward-info">
+            <div class="reward-title">Haleon Lab Flask</div>
+            <button class="redeem-btn" id="home-redeem-flask" disabled onclick="openRedeemQR('flask','Haleon Lab Flask',300)">300 Pts — Redeem</button>
+          </div>
+        </div>
+        <div class="reward-card">
+          <div class="reward-img">🖊️</div>
+          <div class="reward-info">
+            <div class="reward-title">Haleon Branded Pen</div>
+            <button class="redeem-btn" id="home-redeem-pen" disabled onclick="openRedeemQR('pen','Haleon Branded Pen',100)">100 Pts — Redeem</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view rewards-view" id="view-scanner" style="padding: 20px;">
+    <div class="page-title">Collect Points</div>
+    <div class="page-sub" style="margin-bottom: 20px;">Scan QR codes from game stations</div>
+    
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px; text-align: center;">
+      <div class="status-pill" id="scan-status-pill" style="display:inline-flex; align-items:center; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:0.84rem; color:var(--muted); margin-bottom:12px;">
+        <div class="status-dot" style="width:8px; height:8px; border-radius:50%; background:var(--muted);"></div>
+        <span id="scan-status-text">Camera not started</span>
+      </div>
+  
+      <div id="scan-video-wrap" style="width: 100%; aspect-ratio: 1/1; border-radius: 14px; overflow: hidden; background: #000; position: relative; display: none; margin-bottom: 14px;">
+        <video id="scan-video" playsinline autoplay muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+      </div>
+  
+      <button class="btn-primary" id="btn-start-scan" onclick="startPointScanner()">📷 Start Camera</button>
+      <button class="btn-secondary" id="btn-stop-scan" style="display: none; margin-top:10px;" onclick="stopPointScanner()">✕ Stop Camera</button>
+    </div>
+  </div>
+
+  <div class="view rewards-view" id="view-rewards">
+    <div class="rewards-header">
+      <div class="page-title">Rewards</div>
+      <div class="page-sub">Redeem your points for exclusive perks</div>
+      <div class="rewards-pts-bar">
+        <span class="rewards-pts-label">Your Points</span>
+        <span class="rewards-pts-val" id="rewards-pts-display">0 pts</span>
+      </div>
+    </div>
+    <div class="rewards-grid" id="rewards-full-grid" style="padding:16px;"></div>
+  </div>
+
+  <div class="view profile-view" id="view-profile">
+    <div class="page-title">Membership</div>
+    <div class="page-sub" style="margin-bottom:20px">Tap card to flip</div>
+
+    <div class="card-scene" onclick="flipCard()" tabindex="-1">
+      <div class="card-inner" id="card-inner">
+        <div class="card-face card-front" id="card-face-front">
+          <img class="card-png-fill" id="card-front-bg" src="" alt="Membership card front" />
+        </div>
+        <div class="card-face card-back-face" id="card-face-back">
+          <img class="card-png-fill" id="card-back-bg" src="" alt="" />
+          <div class="cb-qr-overlay"><div class="cb-qr"><img id="card-qr-img" src="" alt="Member QR" /></div></div>
+          <div class="cb-name-overlay" id="cb-name-cell"><span id="card-name-back">User Name</span></div>
+          <div class="cb-id-overlay" id="cb-id-cell"><span id="card-num-back">——</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val" id="stat-pts">0</div><div class="stat-lbl">Points</div></div>
+      <div class="stat-box"><div class="stat-val" id="stat-quizzes">0</div><div class="stat-lbl">Games Done</div></div>
+      <div class="stat-box"><div class="stat-val" id="stat-tier">Student</div><div class="stat-lbl">Tier</div></div>
+    </div>
+
+    <div class="profile-section">
+      <div class="section-title">Badges Collected</div>
+      <div class="profile-badges-row" id="profile-badges">
+        <div class="profile-badge-empty">No badges claimed yet.</div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <div class="section-title">Your Information</div>
+      <div class="profile-info-box">
+        <div class="info-row"><span>Name</span><strong id="info-name">—</strong></div>
+        <div class="info-row"><span>Email</span><strong id="info-email">—</strong></div>
+        <div class="info-row"><span>Phone</span><strong id="info-phone">—</strong></div>
+        <div class="info-row"><span>Pharmacy</span><strong id="info-pharmacy">—</strong></div>
+      </div>
+    </div>
+
+    <div class="sync-status" id="sync-status"></div>
+  </div>
+
+  <nav class="bottom-nav" id="bottom-nav">
+    <div class="nav-tabs">
+      <button class="nav-tab active" id="tab-home" onclick="switchTab('home')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Home
+      </button>
+      <button class="nav-tab" id="tab-rewards" onclick="switchTab('rewards')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7m0 0H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zm0 0h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+        Rewards
+      </button>
+      <button class="nav-tab" id="tab-scanner" onclick="switchTab('scanner')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+        Scan
+      </button>
+      <button class="nav-tab" id="tab-profile" onclick="switchTab('profile')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Profile
+      </button>
+    </div>
+  </nav>
+
+  <div class="dialog-overlay" id="welcome-dialog">
+    <div class="dialog-box" style="position:relative;overflow:hidden;">
+      <div class="dialog-icon">🎉</div>
+      <div class="dialog-title" style="font-size:1.4rem;">Welcome to<br>Haleon Partners Club!</div>
+      <div class="dialog-msg" id="welcome-name" style="margin:10px 0 4px;font-size:1.1rem;"></div>
+      <div class="dialog-sub" id="welcome-email" style="margin-bottom:14px;word-break:break-all;"></div>
+      <button class="btn-primary" onclick="closeWelcomeDialog()">Let's Get Started 🚀</button>
+    </div>
+  </div>
+
+  <div class="dialog-overlay" id="badge-dialog" onclick="closeBadgeDialog()">
+    <div class="dialog-box" onclick="event.stopPropagation()">
+      <div class="dialog-icon" id="badge-dialog-icon">❤️</div>
+      <div class="dialog-title">Badge Claimed! 🎉</div>
+      <div class="dialog-msg" id="badge-dialog-name">Health Advocate</div>
+      <div class="dialog-sub">You've earned this badge. Congrats!</div>
+      <button class="btn-primary" style="margin-top:16px" onclick="closeBadgeDialog()">Awesome!</button>
+    </div>
+  </div>
+
+  <div class="dialog-overlay" id="qr-dialog">
+    <div class="dialog-box">
+      <div class="dialog-title" id="qr-dialog-title">Redeem Reward</div>
+      <div class="qr-dialog-code">
+        <img id="qr-dialog-img" src="" alt="QR Code" style="width:188px;height:188px;border-radius:8px;display:block;" />
+      </div>
+      <div class="qr-countdown">Scan within <span id="qr-timer">60</span>s</div>
+      <div class="dialog-sub">Show this QR to the usher to claim your reward</div>
+      <button class="btn-secondary" style="margin-top:12px" onclick="closeQRDialog()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="dialog-overlay" id="redeem-success-dialog">
+    <div class="dialog-box" style="background:linear-gradient(160deg,var(--surface) 0%,#0d1a12 100%);border-color:rgba(74,222,128,0.35);">
+      <div class="dialog-icon">🎁</div>
+      <div class="dialog-title" style="color:var(--green)">Reward Redeemed!</div>
+      <div class="dialog-msg" id="redeem-success-reward">—</div>
+      <div class="dialog-sub" id="redeem-success-pts">—</div>
+      <button class="btn-primary" style="margin-top:16px" onclick="closeRedeemSuccessDialog()">Great! 🎉</button>
+    </div>
+  </div>
+
+</div><script src="app.js"></script>
+</body>
+</html>

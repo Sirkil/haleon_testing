@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Best Place</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+  <style>
+    body { touch-action: none; overflow: hidden; } /* Prevents page scroll while dragging */
+    .game-container { max-width: 480px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center;}
+    .mode-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; text-align: center; cursor: pointer; transition: 0.2s; }
+    .mode-card:hover { border-color: var(--green); }
+    
+    /* Game Area */
+    .pharmacy-bg { 
+      position: relative; 
+      width: 100%; 
+      aspect-ratio: 3/4; 
+      background: linear-gradient(180deg, #111 0%, #1e2329 100%); 
+      border: 2px solid var(--border); 
+      border-radius: 16px; 
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    
+    /* Shelf Lines */
+    .shelf-line { position: absolute; width: 90%; left: 5%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; }
+    
+    /* Target Zones (Invisible or lightly visible to guide user) */
+    .drop-zone { position: absolute; border: 2px dashed rgba(74, 222, 128, 0.3); border-radius: 12px; transition: 0.3s; }
+    
+    /* Inventory Bar */
+    .inventory { display: flex; justify-content: space-around; background: var(--surface2); padding: 16px; border-radius: 16px; border: 1px solid var(--border); }
+    
+    /* Draggable Items */
+    .drag-item { 
+      width: 50px; height: 50px; 
+      background: var(--surface); 
+      border: 1px solid var(--green); 
+      border-radius: 12px; 
+      display: flex; align-items: center; justify-content: center; 
+      font-size: 1.8rem; 
+      z-index: 100;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    /* Dialog styling for the custom message */
+    .custom-msg-dialog {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: 0.3s;
+    }
+    .custom-msg-dialog.show { opacity: 1; pointer-events: all; }
+    .custom-msg-box {
+      background: var(--surface); border: 2px solid var(--green); border-radius: 20px; 
+      padding: 24px; text-align: center; width: 90%; max-width: 320px; transform: scale(0.8); transition: 0.3s;
+    }
+    .custom-msg-dialog.show .custom-msg-box { transform: scale(1); }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+
+  <div class="game-container" id="screen-start" style="text-align: center; justify-content: center;">
+    <div style="font-size: 5rem; margin-bottom: 20px;">🏬</div>
+    <div class="auth-title">Best Place</div>
+    <p style="color: var(--muted); margin-bottom: 30px; line-height: 1.5;">
+      Drag the 4 items to their correct places on the pharmacy shelves.<br>
+      Total: 100 pts (25 pts per item).
+    </p>
+    <button class="btn-primary" onclick="proceedFromStart()">Start Game</button>
+    <button class="btn-secondary" id="btn-exit-start" style="margin-top: 10px;" onclick="goBack()">← Back to App</button>
+  </div>
+
+  <div class="game-container" id="screen-mode" style="display: none;">
+    <button class="btn-secondary" style="margin-bottom: 20px; align-self: flex-start;" onclick="goBack()">← Exit Game</button>
+    <div class="auth-title" style="text-align: center;">Select Mode</div>
+    <div class="mode-card" onclick="startGame('test')">
+      <h3 style="color:var(--text); font-size:1.3rem;">Test Mode</h3>
+      <p style="color:var(--muted); font-size:0.9rem; margin-top:8px;">Play for fun. Points can be collected at the end.</p>
+    </div>
+    <div class="mode-card" onclick="startGame('challenge')">
+      <h3 style="color:var(--green); font-size:1.3rem;">Challenge Mode</h3>
+      <p style="color:var(--muted); font-size:0.9rem; margin-top:8px;">Compete for real points (max 100 pts).</p>
+    </div>
+  </div>
+
+  <div class="game-container" id="screen-game" style="display: none; padding: 20px 10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+      <button class="btn-secondary" style="width:auto; padding: 8px 12px; font-size: 0.8rem;" onclick="goBack()">← Exit</button>
+      <div style="font-weight: 800; color: var(--green);" id="game-pts-display">0 pts</div>
+    </div>
+
+    <div class="pharmacy-bg" id="pharmacy-bg">
+      <div class="shelf-line" style="top: 25%;"></div>
+      <div class="shelf-line" style="top: 50%;"></div>
+      <div class="shelf-line" style="top: 75%;"></div>
+
+      <div class="drop-zone" id="zone-1" style="top: 8%; left: 10%; width: 25%; height: 16%;"></div>
+      <div class="drop-zone" id="zone-2" style="top: 33%; left: 60%; width: 25%; height: 16%;"></div>
+      <div class="drop-zone" id="zone-3" style="top: 58%; left: 35%; width: 25%; height: 16%;"></div>
+      <div class="drop-zone" id="zone-4" style="top: 80%; left: 15%; width: 25%; height: 16%;"></div>
+    </div>
+
+    <div class="inventory" id="inventory">
+      <div class="drag-item" id="item-1" data-target="zone-1">💊</div>
+      <div class="drag-item" id="item-2" data-target="zone-2">🧴</div>
+      <div class="drag-item" id="item-3" data-target="zone-3">🪥</div>
+      <div class="drag-item" id="item-4" data-target="zone-4">🩹</div>
+    </div>
+  </div>
+
+  <div class="game-container" id="screen-result" style="display: none; text-align: center;">
+    <div style="font-size: 4rem; margin-bottom: 10px;">🏆</div>
+    <div class="auth-title">Game Over</div>
+    <div style="font-size: 3.5rem; font-weight:800; color: var(--green); margin-bottom: 20px;" id="result-score">0 pts</div>
+    <div id="result-actions"></div>
+  </div>
+
+  <div class="custom-msg-dialog" id="custom-dialog">
+    <div class="custom-msg-box">
+      <div style="font-size: 2.5rem; margin-bottom: 10px;">✅</div>
+      <div class="auth-title" style="font-size: 1.4rem; color: var(--green); margin-bottom: 8px;">Correct!</div>
+      <p id="custom-dialog-text" style="color: var(--text); font-size: 0.95rem; line-height: 1.5; margin-bottom: 20px;">Message goes here</p>
+      <button class="btn-primary" onclick="closeCustomDialog()">Continue</button>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const uid = urlParams.get('uid');
+    const exhausted = urlParams.get('exhausted') === 'true';
+    const GAME_ID = 'placement';
+    
+    let currentMode = '';
+    let score = 0;
+    let placedCount = 0;
+
+    // The customizable messages for each item when placed correctly
+    const ITEM_MESSAGES = {
+      'item-1': "Painkillers should be highly visible and accessible on the top shelf.",
+      'item-2': "Skincare and lotions fit perfectly on the middle-upper shelves.",
+      'item-3': "Oral care items are best grouped together at eye-level.",
+      'item-4': "First Aid kits and heavier items are safe on the lower shelves."
+    };
+
+    window.onload = () => {
+      if (!uid) document.getElementById('btn-exit-start').style.display = 'none';
+      setupDragEvents();
+    };
+
+    function goBack() { 
+      if (uid) window.location.href = 'index.html'; 
+      else location.reload(); 
+    }
+
+    function proceedFromStart() {
+      document.getElementById('screen-start').style.display = 'none';
+      if (uid) document.getElementById('screen-mode').style.display = 'flex';
+      else startGame('challenge');
+    }
+
+    function startGame(mode) {
+      if (exhausted && mode === 'challenge') {
+        showToast("You've already completed this game. Playing in Test Mode.");
+        currentMode = 'test';
+      } else {
+        currentMode = mode;
+      }
+      document.getElementById('screen-mode').style.display = 'none';
+      document.getElementById('screen-game').style.display = 'flex';
+    }
+
+    // --- Drag and Drop Logic ---
+    let activeItem = null;
+    let startX = 0, startY = 0;
+    let origLeft = 0, origTop = 0;
+
+    function setupDragEvents() {
+      const items = document.querySelectorAll('.drag-item');
+      items.forEach(item => {
+        item.addEventListener('touchstart', dragStart, {passive: false});
+        item.addEventListener('touchmove', dragMove, {passive: false});
+        item.addEventListener('touchend', dragEnd, {passive: false});
+
+        item.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', dragMove);
+        document.addEventListener('mouseup', dragEnd);
+      });
+    }
+
+    function dragStart(e) {
+      if (e.target.classList.contains('drag-item') && !e.target.classList.contains('placed')) {
+        activeItem = e.target;
+        const event = e.touches ? e.touches[0] : e;
+        startX = event.clientX;
+        startY = event.clientY;
+        
+        // Convert to absolute positioning to drag freely over the pharmacy bg
+        const rect = activeItem.getBoundingClientRect();
+        activeItem.style.position = 'fixed';
+        activeItem.style.left = rect.left + 'px';
+        activeItem.style.top = rect.top + 'px';
+        activeItem.style.margin = '0';
+        activeItem.style.zIndex = '1000';
+      }
+    }
+
+    function dragMove(e) {
+      if (!activeItem) return;
+      e.preventDefault(); // stop scrolling
+      const event = e.touches ? e.touches[0] : e;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      
+      activeItem.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+
+    function dragEnd(e) {
+      if (!activeItem) return;
+      
+      const targetZoneId = activeItem.dataset.target;
+      const targetZone = document.getElementById(targetZoneId);
+      
+      const itemRect = activeItem.getBoundingClientRect();
+      const zoneRect = targetZone.getBoundingClientRect();
+      
+      const itemCX = itemRect.left + itemRect.width / 2;
+      const itemCY = itemRect.top + itemRect.height / 2;
+
+      // The "twist": Flexible placement using a padding radius
+      const padding = 30; // 30px buffer around the zone
+
+      if (
+        itemCX >= zoneRect.left - padding &&
+        itemCX <= zoneRect.right + padding &&
+        itemCY >= zoneRect.top - padding &&
+        itemCY <= zoneRect.bottom + padding
+      ) {
+        // Correct Placement
+        activeItem.classList.add('placed');
+        activeItem.style.transform = 'translate(0,0)';
+        activeItem.style.position = 'absolute';
+        // Append to the zone to lock it visually inside the pharmacy bg
+        activeItem.style.left = '50%';
+        activeItem.style.top = '50%';
+        activeItem.style.transform = 'translate(-50%, -50%)';
+        targetZone.appendChild(activeItem);
+        targetZone.style.borderColor = 'transparent'; // hide dashed border
+
+        score += 25;
+        placedCount++;
+        document.getElementById('game-pts-display').textContent = score + " pts";
+        
+        showCustomDialog(ITEM_MESSAGES[activeItem.id]);
+      } else {
+        // Wrong Placement - Snap back to inventory
+        activeItem.style.position = 'static';
+        activeItem.style.transform = 'translate(0,0)';
+        document.getElementById('inventory').appendChild(activeItem);
+      }
+      
+      activeItem = null;
+    }
+
+    function showCustomDialog(msg) {
+      document.getElementById('custom-dialog-text').textContent = msg;
+      document.getElementById('custom-dialog').classList.add('show');
+    }
+
+    function closeCustomDialog() {
+      document.getElementById('custom-dialog').classList.remove('show');
+      if (placedCount === 4) {
+        setTimeout(finishGame, 400);
+      }
+    }
+
+    function finishGame() {
+      document.getElementById('screen-game').style.display = 'none';
+      document.getElementById('screen-result').style.display = 'flex';
+      document.getElementById('result-score').textContent = score + " pts";
+
+      const actionsDiv = document.getElementById('result-actions');
+      if (currentMode === 'challenge') {
+        processPoints();
+      } else {
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
+          <button class="btn-secondary" style="margin-top:10px;" onclick="goBack()">Play for fun (Exit)</button>
+        `;
+      }
+    }
+
+    function processPoints() {
+      if (score === 0 && currentMode === 'test') { goBack(); return; }
+
+      const actionsDiv = document.getElementById('result-actions');
+      actionsDiv.innerHTML = "Processing...";
+
+      if (uid) {
+        window.location.href = `index.html?rewardGame=${GAME_ID}&rewardPts=${score}`;
+      } else {
+        const payload = JSON.stringify({ type: "game_reward", gameId: GAME_ID, points: score, nonce: Date.now() });
+        const qr = qrcode(0, 'L');
+        qr.addData(payload);
+        qr.make();
+        actionsDiv.innerHTML = `
+          <div style="background:white; padding:10px; display:inline-block; border-radius:10px; margin-bottom:10px;">
+            ${qr.createImgTag(5)}
+          </div>
+          <p style="color:var(--muted); font-size:0.9rem;">Scan this QR with your Haleon app to collect points.</p>
+          <button class="btn-secondary" style="margin-top:20px;" onclick="location.reload()">Start New Game</button>
+        `;
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast"); toast.textContent = msg; toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1500);
+    }
+  </script>
+</body>
+</html>

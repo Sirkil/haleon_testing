@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Myth vs Fact</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+  <style>
+    .game-container { max-width: 480px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center;}
+    .mode-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; text-align: center; cursor: pointer; transition: 0.2s; }
+    .mode-card:hover { border-color: var(--green); }
+    .question-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 30px 20px; text-align: center; margin-bottom: 30px; }
+    .question-text { font-size: 1.3rem; font-weight: 500; line-height: 1.4; color: var(--text); }
+    .progress-text { font-family: 'Poppins', sans-serif; font-weight: 700; color: var(--green); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 15px; }
+    .btn-myth { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; }
+    .btn-myth:hover { background: #ef4444; color: #fff; }
+    .btn-fact { background: rgba(74, 222, 128, 0.15); border: 1px solid var(--green); color: var(--green); }
+    .btn-fact:hover { background: var(--green); color: #000; }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+
+  <div class="game-container" id="screen-start" style="text-align: center; justify-content: center;">
+    <div style="font-size: 5rem; margin-bottom: 20px;">🤔</div>
+    <div class="auth-title">Myth vs Fact</div>
+    <p style="color: var(--muted); margin-bottom: 30px; line-height: 1.5;">
+      Test your knowledge. Is the statement a Myth or a Fact?<br>
+      Correct answers: +25 pts.
+    </p>
+    <button class="btn-primary" onclick="proceedFromStart()">Start Game</button>
+    <button class="btn-secondary" id="btn-exit-start" style="margin-top: 10px;" onclick="goBack()">← Back to App</button>
+  </div>
+
+  <div class="game-container" id="screen-mode" style="display: none;">
+    <button class="btn-secondary" style="margin-bottom: 20px; align-self: flex-start;" onclick="goBack()">← Exit Game</button>
+    <div class="auth-title" style="text-align: center;">Select Mode</div>
+    <div class="mode-card" onclick="startGame('test')">
+      <h3 style="color:var(--text); font-size:1.3rem;">Test Mode</h3>
+      <p style="color:var(--muted); font-size:0.9rem; margin-top:8px;">Play for fun. You can choose to collect points at the end.</p>
+    </div>
+    <div class="mode-card" onclick="startGame('challenge')">
+      <h3 style="color:var(--green); font-size:1.3rem;">Challenge Mode</h3>
+      <p style="color:var(--muted); font-size:0.9rem; margin-top:8px;">Play for real. Points are automatically recorded.</p>
+    </div>
+  </div>
+
+  <div class="game-container" id="screen-game" style="display: none;">
+    <button class="btn-secondary" style="margin-bottom: 20px; align-self: flex-start;" onclick="goBack()">← Exit Game</button>
+    <div class="progress-text" id="q-progress">Question 1 of 4</div>
+    <div class="question-card">
+      <div class="question-text" id="q-text">Antibiotics are effective against viral infections like the common cold.</div>
+    </div>
+    <div style="display: flex; gap: 15px;">
+      <button class="btn-primary btn-myth" style="flex: 1; padding: 20px;" onclick="answer('myth')">Myth</button>
+      <button class="btn-primary btn-fact" style="flex: 1; padding: 20px;" onclick="answer('fact')">Fact</button>
+    </div>
+  </div>
+
+  <div class="game-container" id="screen-result" style="display: none; text-align: center;">
+    <div style="font-size: 4rem; margin-bottom: 10px;">🏆</div>
+    <div class="auth-title">Game Over</div>
+    <div style="font-size: 3.5rem; font-weight:800; color: var(--green); margin-bottom: 20px;" id="result-score">0 pts</div>
+    <div id="result-actions"></div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const uid = urlParams.get('uid');
+    const exhausted = urlParams.get('exhausted') === 'true';
+    const GAME_ID = 'myth';
+    
+    let currentMode = '';
+    let score = 0;
+    let currentQ = 0;
+
+    const questions = [
+      { text: "Antibiotics are effective against viral infections like the common cold.", answer: "myth" },
+      { text: "Vitamin D is naturally synthesized by the body when exposed to sunlight.", answer: "fact" },
+      { text: "Cracking your knuckles causes arthritis.", answer: "myth" },
+      { text: "Adults should aim for 7 to 9 hours of sleep per night for optimal health.", answer: "fact" }
+    ];
+
+    window.onload = () => {
+      if (!uid) document.getElementById('btn-exit-start').style.display = 'none';
+    };
+
+    function goBack() { 
+      if (uid) window.location.href = 'index.html'; 
+      else location.reload(); 
+    }
+
+    function proceedFromStart() {
+      document.getElementById('screen-start').style.display = 'none';
+      if (uid) document.getElementById('screen-mode').style.display = 'flex';
+      else startGame('challenge');
+    }
+
+    function startGame(mode) {
+      if (exhausted && mode === 'challenge') {
+        showToast("You've already completed this game. Playing in Test Mode.");
+        currentMode = 'test';
+      } else {
+        currentMode = mode;
+      }
+      document.getElementById('screen-mode').style.display = 'none';
+      document.getElementById('screen-game').style.display = 'flex';
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      if (currentQ >= questions.length) {
+        finishGame();
+        return;
+      }
+      document.getElementById('q-progress').textContent = `Question ${currentQ + 1} of ${questions.length}`;
+      document.getElementById('q-text').textContent = questions[currentQ].text;
+    }
+
+    function answer(choice) {
+      if (choice === questions[currentQ].answer) {
+        score += 25;
+        showToast("Correct! +25 pts");
+      } else {
+        showToast("Incorrect!");
+      }
+      currentQ++;
+      setTimeout(loadQuestion, 800);
+    }
+
+    function finishGame() {
+      document.getElementById('screen-game').style.display = 'none';
+      document.getElementById('screen-result').style.display = 'flex';
+      document.getElementById('result-score').textContent = score + " pts";
+
+      const actionsDiv = document.getElementById('result-actions');
+      if (currentMode === 'challenge') {
+        processPoints();
+      } else {
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
+          <button class="btn-secondary" style="margin-top:10px;" onclick="goBack()">Play for fun (Exit)</button>
+        `;
+      }
+    }
+
+    function processPoints() {
+      if (score === 0 && currentMode === 'test') { goBack(); return; }
+
+      const actionsDiv = document.getElementById('result-actions');
+      actionsDiv.innerHTML = "Processing...";
+
+      if (uid) {
+        window.location.href = `index.html?rewardGame=${GAME_ID}&rewardPts=${score}`;
+      } else {
+        const payload = JSON.stringify({ type: "game_reward", gameId: GAME_ID, points: score, nonce: Date.now() });
+        const qr = qrcode(0, 'L');
+        qr.addData(payload);
+        qr.make();
+        actionsDiv.innerHTML = `
+          <div style="background:white; padding:10px; display:inline-block; border-radius:10px; margin-bottom:10px;">
+            ${qr.createImgTag(5)}
+          </div>
+          <p style="color:var(--muted); font-size:0.9rem;">Scan this QR with your Haleon app to collect points.</p>
+          <button class="btn-secondary" style="margin-top:20px;" onclick="location.reload()">Start New Game</button>
+        `;
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast"); toast.textContent = msg; toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1500);
+    }
+  </script>
+</body>
+</html>

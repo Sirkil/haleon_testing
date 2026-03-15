@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Catch & Win</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+  <style>
+    body { overflow: hidden; touch-action: none; }
+    .game-container { max-width: 480px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; position: relative; }
+    .mode-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; text-align: center; cursor: pointer; transition: 0.2s; }
+    .mode-card:hover { border-color: var(--green); }
+    
+    .catch-hud { position: absolute; top: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
+    .catch-pill { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 8px 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .lives-box { display: flex; flex-direction: column; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 10px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .heart { color: #f472b6; font-size: 1.2rem; transition: opacity 0.3s; }
+    .heart.lost { opacity: 0.2; }
+    
+    #catch-canvas { display: block; width: 100%; height: 100%; background: var(--bg); position: absolute; top: 0; left: 0; z-index: 1; border-radius: 0; }
+    
+    .float-text { position: absolute; font-weight: 800; font-size: 1.5rem; pointer-events: none; animation: floatUp 0.8s ease-out forwards; z-index: 5; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    .float-good { color: var(--green); }
+    .float-bad { color: #ef4444; }
+    @keyframes floatUp { 0% { transform: translateY(0) scale(0.5); opacity: 1; } 100% { transform: translateY(-50px) scale(1.2); opacity: 0; } }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+
+  <div class="game-container" id="screen-start" style="text-align: center; justify-content: center; z-index: 20;">
+    <div style="font-size: 5rem; margin-bottom: 20px;">🧺</div>
+    <div class="auth-title">Catch & Win</div>
+    <p style="color: var(--muted); margin-bottom: 30px; line-height: 1.5;">
+      Drag the basket to catch good items (+10 pts).<br>
+      Avoid bad items or missing good ones (-10 pts & lose 1 life).<br>
+      You have 60 seconds and 3 lives!
+    </p>
+    <button class="btn-primary" onclick="proceedFromStart()">Start Game</button>
+    <button class="btn-secondary" id="btn-exit-start" style="margin-top: 10px;" onclick="goBack()">← Back to App</button>
+  </div>
+
+  <div class="game-container" id="screen-mode" style="display: none; z-index: 20;">
+    <button class="btn-secondary" style="margin-bottom: 20px; align-self: flex-start;" onclick="goBack()">← Exit Game</button>
+    <div class="auth-title" style="text-align: center;">Select Mode</div>
+    <div class="mode-card" onclick="startGame('test')">
+      <h3 style="color:var(--text); font-size:1.3rem;">Test Mode</h3>
+      <p style="color:var(--muted); font-size:0.85rem; margin-top:8px;">Play for fun. Points can be collected at the end.</p>
+    </div>
+    <div class="mode-card" onclick="startGame('challenge')">
+      <h3 style="color:var(--green); font-size:1.3rem;">Challenge Mode</h3>
+      <p style="color:var(--muted); font-size:0.85rem; margin-top:8px;">Compete for real points.</p>
+    </div>
+  </div>
+
+  <div id="screen-game" style="display: none; position: fixed; inset: 0;">
+    <button class="btn-secondary" style="position:absolute; top:80px; left:20px; z-index: 10;" onclick="goBack()">← Exit Game</button>
+    <div class="catch-hud">
+      <div class="catch-pill"><span style="color:var(--muted);font-size:0.8rem;">Time</span> <span id="hud-time">60s</span></div>
+      <div class="catch-pill" style="color:var(--green); font-size:1.2rem;" id="hud-score">0</div>
+      <div class="lives-box">
+        <div class="heart" id="life-3">❤️</div>
+        <div class="heart" id="life-2">❤️</div>
+        <div class="heart" id="life-1">❤️</div>
+      </div>
+    </div>
+    <canvas id="catch-canvas"></canvas>
+  </div>
+
+  <div class="game-container" id="screen-result" style="display: none; text-align: center; z-index: 20;">
+    <div style="font-size: 4rem; margin-bottom: 10px;" id="result-icon">🏆</div>
+    <div class="auth-title" id="result-title">Time's Up!</div>
+    <div style="font-size: 3.5rem; font-weight: 800; color: var(--green); margin-bottom: 10px; line-height: 1;" id="result-score">0 pts</div>
+    <div style="color:var(--muted); font-size: 0.95rem; margin-bottom: 24px;" id="result-breakdown">Great job catching healthy items!</div>
+    <div id="result-actions"></div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const uid = urlParams.get('uid');
+    const exhausted = urlParams.get('exhausted') === 'true';
+    const GAME_ID = 'catch';
+    
+    let currentMode = '';
+    
+    let score = 0;
+    let lives = 3;
+    let timeLeft = 60;
+    let gameLoopId;
+    let timerId;
+    let spawnTimerId;
+    
+    const canvas = document.getElementById('catch-canvas');
+    const ctx = canvas.getContext('2d');
+    let cw, ch;
+
+    const goodEmojis = ['💊', '🌿', '💧', '🦷'];
+    const badEmojis = ['🦠', '🍔', '🍭', '🍩'];
+    
+    let basket = { x: 0, y: 0, w: 80, h: 60, emoji: '🧺' };
+    let items = [];
+    let speedMultiplier = 1;
+
+    function resizeCanvas() {
+      cw = window.innerWidth > 480 ? 480 : window.innerWidth;
+      ch = window.innerHeight;
+      canvas.width = cw;
+      canvas.height = ch;
+      canvas.style.left = (window.innerWidth - cw) / 2 + 'px';
+      basket.y = ch - 100;
+      if(basket.x === 0) basket.x = cw / 2 - basket.w / 2;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    window.onload = () => {
+      if (!uid) document.getElementById('btn-exit-start').style.display = 'none';
+    };
+
+    function goBack() { 
+      if (uid) window.location.href = 'index.html'; 
+      else location.reload(); 
+    }
+
+    function proceedFromStart() {
+      document.getElementById('screen-start').style.display = 'none';
+      if (uid) document.getElementById('screen-mode').style.display = 'flex';
+      else startGame('challenge');
+    }
+
+    function startGame(mode) {
+      if (exhausted && mode === 'challenge') {
+        showToast("You've already completed this game. Playing in Test Mode.");
+        currentMode = 'test';
+      } else {
+        currentMode = mode;
+      }
+      document.getElementById('screen-mode').style.display = 'none';
+      document.getElementById('screen-game').style.display = 'block';
+      
+      resizeCanvas();
+      initGame();
+    }
+
+    function initGame() {
+      score = 0; lives = 3; timeLeft = 60; items = []; speedMultiplier = 1;
+      updateHUD();
+      document.querySelectorAll('.heart').forEach(h => h.classList.remove('lost'));
+      
+      canvas.addEventListener('touchmove', handleTouch, {passive: false});
+      canvas.addEventListener('mousemove', handleMouse);
+      
+      timerId = setInterval(() => {
+        timeLeft--;
+        speedMultiplier += 0.05; 
+        updateHUD();
+        if (timeLeft <= 0) endGame(true);
+      }, 1000);
+
+      spawnItem();
+      gameLoopId = requestAnimationFrame(gameLoop);
+    }
+
+    function handleTouch(e) {
+      e.preventDefault();
+      const touchX = e.touches[0].clientX - (window.innerWidth - cw)/2;
+      basket.x = Math.max(0, Math.min(touchX - basket.w/2, cw - basket.w));
+    }
+    function handleMouse(e) {
+      const mouseX = e.clientX - (window.innerWidth - cw)/2;
+      basket.x = Math.max(0, Math.min(mouseX - basket.w/2, cw - basket.w));
+    }
+
+    function spawnItem() {
+      if(timeLeft <= 0 || lives <= 0) return;
+      
+      const isGood = Math.random() > 0.35; 
+      const list = isGood ? goodEmojis : badEmojis;
+      const emoji = list[Math.floor(Math.random() * list.length)];
+      
+      items.push({
+        x: Math.random() * (cw - 40) + 20,
+        y: -40,
+        size: 40,
+        dy: (Math.random() * 2 + 3) * speedMultiplier,
+        emoji: emoji,
+        isGood: isGood
+      });
+      
+      const nextSpawn = Math.max(400, 1000 - (60 - timeLeft)*10);
+      spawnTimerId = setTimeout(spawnItem, nextSpawn);
+    }
+
+    function spawnFloatingText(x, y, text, isGood) {
+      const el = document.createElement('div');
+      el.className = `float-text ${isGood ? 'float-good' : 'float-bad'}`;
+      el.textContent = text;
+      el.style.left = (x + (window.innerWidth - cw)/2) + 'px';
+      el.style.top = y + 'px';
+      document.getElementById('screen-game').appendChild(el);
+      setTimeout(() => el.remove(), 800);
+    }
+
+    function updateHUD() {
+      document.getElementById('hud-time').textContent = timeLeft + 's';
+      document.getElementById('hud-score').textContent = score;
+      document.getElementById('hud-time').style.color = timeLeft <= 10 ? '#ef4444' : 'var(--muted)';
+      
+      if(lives < 3) document.getElementById('life-3').classList.add('lost');
+      if(lives < 2) document.getElementById('life-2').classList.add('lost');
+      if(lives < 1) document.getElementById('life-1').classList.add('lost');
+    }
+
+    function mistake(x, y) {
+      lives--;
+      score -= 10;
+      spawnFloatingText(x, y, "-10", false);
+      updateHUD();
+      
+      canvas.style.opacity = '0.5';
+      setTimeout(() => canvas.style.opacity = '1', 100);
+
+      if(lives <= 0) endGame(false);
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, cw, ch);
+      
+      ctx.font = '50px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(basket.emoji, basket.x + basket.w/2, basket.y + basket.h/2);
+
+      for (let i = items.length - 1; i >= 0; i--) {
+        let item = items[i];
+        item.y += item.dy;
+        
+        ctx.font = item.size + 'px sans-serif';
+        ctx.fillText(item.emoji, item.x, item.y);
+
+        const hitX = item.x > basket.x && item.x < basket.x + basket.w;
+        const hitY = item.y > basket.y - 20 && item.y < basket.y + basket.h;
+
+        if (hitX && hitY) {
+          if (item.isGood) {
+            score += 10;
+            spawnFloatingText(item.x, item.y, "+10", true);
+            updateHUD();
+          } else {
+            mistake(item.x, item.y);
+          }
+          items.splice(i, 1);
+          continue;
+        }
+
+        if (item.y > ch + 20) {
+          if (item.isGood) {
+            mistake(item.x, ch - 50); 
+          }
+          items.splice(i, 1);
+        }
+      }
+
+      if(lives > 0 && timeLeft > 0) {
+        gameLoopId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function endGame(survived) {
+      cancelAnimationFrame(gameLoopId);
+      clearInterval(timerId);
+      clearTimeout(spawnTimerId);
+      
+      canvas.removeEventListener('touchmove', handleTouch);
+      canvas.removeEventListener('mousemove', handleMouse);
+
+      if (score < 0) score = 0;
+
+      document.getElementById('screen-game').style.display = 'none';
+      document.getElementById('screen-result').style.display = 'flex';
+      
+      document.getElementById('result-title').textContent = survived ? "Time's Up!" : "Out of Lives!";
+      document.getElementById('result-icon').textContent = survived ? "⏱️" : "💔";
+      document.getElementById('result-score').textContent = score + " pts";
+      
+      const actionsDiv = document.getElementById('result-actions');
+      
+      if (currentMode === 'challenge') {
+        processPoints();
+      } else {
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
+          <button class="btn-secondary" style="margin-top:10px;" onclick="goBack()">Play for fun (Exit)</button>
+        `;
+      }
+    }
+
+    function processPoints() {
+      if (score === 0 && currentMode === 'test') { goBack(); return; }
+
+      const actionsDiv = document.getElementById('result-actions');
+      actionsDiv.innerHTML = "Processing...";
+
+      if (uid) {
+        window.location.href = `index.html?rewardGame=${GAME_ID}&rewardPts=${score}`;
+      } else {
+        const payload = JSON.stringify({ type: "game_reward", gameId: GAME_ID, points: score, nonce: Date.now() });
+        const qr = qrcode(0, 'L'); qr.addData(payload); qr.make();
+        actionsDiv.innerHTML = `
+          <div style="background:white; padding:10px; display:inline-block; border-radius:10px; margin-bottom:10px;">
+            ${qr.createImgTag(5)}
+          </div>
+          <p style="color:var(--muted); font-size:0.9rem;">Scan this QR with your Haleon app to collect points.</p>
+          <button class="btn-secondary" style="margin-top:20px;" onclick="location.reload()">Start New Game</button>
+        `;
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast"); toast.textContent = msg; toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1500);
+    }
+  </script>
+</body>
+</html>
