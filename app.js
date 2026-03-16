@@ -12,7 +12,7 @@ const state = {
 
 const answeredSet = new Set();
 const tabOrder = ["home", "rewards", "scanner", "profile"];
-const TOTAL_GAMES = 8; // Updated to 7 games
+const TOTAL_GAMES = 9; // Updated to 9 games
 
 function makeQRUrl(data, size = 200) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
@@ -168,8 +168,19 @@ function updateHomeUI() {
 function updateHomeRedeemBtns() { const flask = document.getElementById("home-redeem-flask"); const pen = document.getElementById("home-redeem-pen"); if (flask) flask.disabled = state.score < 300; if (pen) pen.disabled = state.score < 100; }
 
 function updateGamesUI() {
-  const games = ['basket', 'myth', 'buzzer', 'memory', 'catch', 'prescription', 'placement', 'mitohype'];
-  games.forEach(g => { const statusEl = document.getElementById('gstatus-' + g); if (statusEl) { if (state.gamesCompleted[g]) { statusEl.textContent = "✓ Completed"; statusEl.style.color = "var(--green)"; } else { statusEl.textContent = "Play"; statusEl.style.color = "var(--muted)"; } } });
+  const games = ['basket', 'myth', 'buzzer', 'memory', 'catch', 'prescription', 'placement', 'mitohype', 'spin'];
+  games.forEach(g => { 
+    const statusEl = document.getElementById('gstatus-' + g); 
+    if (statusEl) { 
+      if (state.gamesCompleted[g]) { 
+        statusEl.textContent = "✓ Completed"; 
+        statusEl.style.color = "var(--green)"; 
+      } else { 
+        statusEl.textContent = "Play"; 
+        statusEl.style.color = "var(--muted)"; 
+      } 
+    } 
+  });
 }
 
 window.openGame = function(url, gameId) { if (state.gamesCompleted[gameId]) { showToast("You've already collected points for this game!"); window.location.href = url + `?uid=${state.uid}&exhausted=true`; } else { window.location.href = url + `?uid=${state.uid}`; } };

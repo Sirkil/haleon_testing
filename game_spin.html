@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Spin to Win</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+  <style>
+    .game-container { max-width: 480px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; position: relative;}
+    .mode-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; text-align: center; cursor: pointer; transition: 0.2s; }
+    .mode-card:hover { border-color: var(--green); }
+    
+    /* Wheel Container Styling */
+    .wheel-wrapper {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      margin: 40px auto;
+      border-radius: 50%;
+      border: 8px solid var(--surface2);
+      box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    /* The Canvas where the 16 slices are drawn */
+    #wheel {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: block;
+    }
+
+    /* The Pointer at the top of the wheel */
+    .wheel-pointer {
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; 
+      height: 0; 
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-top: 40px solid #ef4444; /* Red Pointer */
+      z-index: 10;
+      filter: drop-shadow(0 4px 4px rgba(0,0,0,0.4));
+    }
+
+    .center-peg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 40px;
+      background: var(--border);
+      border: 4px solid var(--surface2);
+      border-radius: 50%;
+      z-index: 5;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .spin-btn {
+      display: block; width: 200px; margin: 0 auto;
+      padding: 16px; border-radius: 30px; font-size: 1.3rem;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998;display:none;"></canvas>
+  <div class="toast" id="toast"></div>
+
+  <div class="game-container" id="screen-start" style="text-align: center; justify-content: center;">
+    <div style="font-size: 5rem; margin-bottom: 20px;">🎡</div>
+    <div class="auth-title">Spin to Win</div>
+    <p style="color: var(--muted); margin-bottom: 30px; line-height: 1.5;">
+      Test your luck! You get ONE spin to win points.<br>
+      Watch out for "Tough Luck" slices!
+    </p>
+    <button class="btn-primary" onclick="proceedFromStart()">Start Game</button>
+    <button class="btn-secondary" id="btn-exit-start" style="margin-top: 10px;" onclick="goBack()">← Back to App</button>
+  </div>
+
+  <div class="game-container" id="screen-mode" style="display: none;">
+    <button class="btn-secondary" style="margin-bottom: 20px; align-self: flex-start;" onclick="goBack()">← Exit Game</button>
+    <div class="auth-title" style="text-align: center;">Select Mode</div>
+    <div class="mode-card" onclick="startGame('test')">
+      <h3 style="color:var(--text); font-size:1.3rem;">Test Mode</h3>
+      <p style="color:var(--muted); font-size:0.9rem; margin-top:8px;">Play for fun. Points can be collected at the end.</p>
+    </div>
+    <div class="mode-card" onclick="startGame('challenge')">
+      <h3 style="color:var(--green); font-size:1.3rem;">Challenge Mode</h3>
+      <p style="color:var(--muted); font-size:0.9rem; margin-top:8px;">Compete for real points.</p>
+    </div>
+  </div>
+
+  <div class="game-container" id="screen-game" style="display: none;">
+    <button class="btn-secondary" style="margin-bottom: 10px; align-self: flex-start;" onclick="goBack()">← Exit Game</button>
+    <div class="auth-title" style="text-align: center; margin-bottom: 0;">Spin the Wheel</div>
+    
+    <div class="wheel-wrapper">
+      <div class="wheel-pointer"></div>
+      <div class="center-peg"></div>
+      <canvas id="wheel" width="600" height="600"></canvas>
+    </div>
+
+    <button class="btn-primary spin-btn" id="btn-spin" onclick="spinWheel()">SPIN NOW!</button>
+  </div>
+
+  <div class="game-container" id="screen-result" style="display: none; text-align: center;">
+    <div style="font-size: 4rem; margin-bottom: 10px;" id="result-icon">🏆</div>
+    <div class="auth-title" id="result-title">Wheel Stopped!</div>
+    <div style="font-size: 3.5rem; font-weight:800; color: var(--green); margin-bottom: 20px;" id="result-score">0 pts</div>
+    <div id="result-actions"></div>
+  </div>
+
+  <script>
+    // --- Audio & Effects Engine ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+    
+    function playSound(type) {
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator(); 
+      const gain = audioCtx.createGain();
+      osc.connect(gain); 
+      gain.connect(audioCtx.destination);
+      
+      if(type === 'win') {
+        osc.type = 'sine'; 
+        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); 
+        osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); 
+        osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.3); 
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime); 
+        gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5); 
+        osc.start(); 
+        osc.stop(audioCtx.currentTime + 0.5);
+      } else if(type === 'lose') {
+        osc.type = 'sawtooth'; 
+        osc.frequency.setValueAtTime(300, audioCtx.currentTime); 
+        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.5); 
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime); 
+        gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5); 
+        osc.start(); 
+        osc.stop(audioCtx.currentTime + 0.5);
+      }
+    }
+
+    function launchConfetti(duration) {
+      const canvas = document.getElementById("confetti-canvas"); 
+      const ctx = canvas.getContext("2d"); 
+      canvas.style.display = "block";
+      canvas.width = window.innerWidth; 
+      canvas.height = window.innerHeight;
+      const pieces = []; 
+      const colors = ["#4ade80", "#22c55e", "#f0f4f8", "#facc15", "#60a5fa", "#f472b6"];
+      for (let i = 0; i < 100; i++) {
+        pieces.push({ 
+          x: Math.random() * canvas.width, 
+          y: -10 - Math.random() * 200, 
+          r: 4 + Math.random() * 6, 
+          color: colors[Math.floor(Math.random() * colors.length)], 
+          vx: (Math.random() - 0.5) * 4, 
+          vy: 2 + Math.random() * 4, 
+          rot: Math.random() * 360, 
+          rs: (Math.random() - 0.5) * 6 
+        });
+      }
+      const end = Date.now() + duration;
+      (function frame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach((p) => {
+          ctx.save(); 
+          ctx.translate(p.x, p.y); 
+          ctx.rotate((p.rot * Math.PI) / 180); 
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.6); 
+          ctx.restore(); 
+          p.x += p.vx; 
+          p.y += p.vy; 
+          p.vy += 0.05; 
+          p.rot += p.rs;
+        });
+        if (Date.now() < end) requestAnimationFrame(frame); 
+        else { ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.style.display = "none"; }
+      })();
+    }
+
+    // --- Game Logic ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const uid = urlParams.get('uid');
+    const exhausted = urlParams.get('exhausted') === 'true';
+    const GAME_ID = 'spin';
+    
+    let currentMode = '';
+    let score = 0;
+    let isSpinning = false;
+    let spinCount = 0;
+
+    // Removed "Try Again" - replaced with more points and one more "Tough Luck"
+    const segments = [
+      { label: '50 pts', value: 50, color: '#1e293b', text: '#4ade80' },
+      { label: 'Tough Luck', value: 0, color: '#0f172a', text: '#ef4444' },
+      { label: '20 pts', value: 20, color: '#1e293b', text: '#4ade80' },
+      { label: '15 pts', value: 15, color: '#0f172a', text: '#4ade80' },
+      { label: '100 pts', value: 100, color: '#1e293b', text: '#4ade80' },
+      { label: '10 pts', value: 10, color: '#0f172a', text: '#4ade80' },
+      { label: 'Tough Luck', value: 0, color: '#1e293b', text: '#ef4444' },
+      { label: '30 pts', value: 30, color: '#0f172a', text: '#4ade80' },
+      { label: 'Tough Luck', value: 0, color: '#1e293b', text: '#ef4444' },
+      { label: '50 pts', value: 50, color: '#0f172a', text: '#4ade80' },
+      { label: 'Tough Luck', value: 0, color: '#1e293b', text: '#ef4444' },
+      { label: '10 pts', value: 10, color: '#0f172a', text: '#4ade80' },
+      { label: '75 pts', value: 75, color: '#1e293b', text: '#4ade80' },
+      { label: '40 pts', value: 40, color: '#0f172a', text: '#4ade80' },
+      { label: '25 pts', value: 25, color: '#1e293b', text: '#4ade80' },
+      { label: '200 pts', value: 200, color: '#0f172a', text: '#38bdf8' }
+    ];
+
+    window.onload = () => {
+      if (!uid) document.getElementById('btn-exit-start').style.display = 'none';
+      drawWheel();
+    };
+
+    function goBack() { 
+      if (uid) window.location.href = 'index.html'; 
+      else location.reload(); 
+    }
+
+    function proceedFromStart() {
+      document.getElementById('screen-start').style.display = 'none';
+      if (uid) document.getElementById('screen-mode').style.display = 'flex';
+      else startGame('challenge');
+    }
+
+    function startGame(mode) {
+      if (exhausted && mode === 'challenge') {
+        showToast("You've already completed this game. Playing in Test Mode.");
+        currentMode = 'test';
+      } else {
+        currentMode = mode;
+      }
+      document.getElementById('screen-mode').style.display = 'none';
+      document.getElementById('screen-game').style.display = 'flex';
+    }
+
+    function drawWheel() {
+      const canvas = document.getElementById('wheel');
+      const ctx = canvas.getContext('2d');
+      const center = canvas.width / 2;
+      const radius = center;
+      const arc = (2 * Math.PI) / segments.length;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < segments.length; i++) {
+        const angle = i * arc - (Math.PI / 2) - (arc / 2); 
+        
+        ctx.beginPath();
+        ctx.fillStyle = segments[i].color;
+        ctx.moveTo(center, center);
+        ctx.arc(center, center, radius, angle, angle + arc, false);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(center, center);
+        ctx.rotate(angle + arc / 2);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = segments[i].text;
+        ctx.font = 'bold 28px Poppins';
+        ctx.fillText(segments[i].label, radius - 30, 0);
+        ctx.restore();
+      }
+    }
+
+    function spinWheel() {
+      if (isSpinning) return;
+      isSpinning = true;
+      spinCount++;
+
+      const btn = document.getElementById('btn-spin');
+      btn.disabled = true;
+      btn.style.opacity = 0.5;
+
+      const winIdx = Math.floor(Math.random() * segments.length);
+      const sliceAngle = 360 / segments.length;
+      const randomOffset = Math.floor(Math.random() * (sliceAngle - 4)) - (sliceAngle / 2 - 2);
+
+      const extraSpins = 360 * 5 * spinCount; 
+      const targetRotation = extraSpins + (360 - (winIdx * sliceAngle)) + randomOffset;
+
+      const canvas = document.getElementById('wheel');
+      canvas.style.transition = 'transform 4.5s cubic-bezier(0.15, 0.85, 0.15, 1)';
+      canvas.style.transform = `rotate(${targetRotation}deg)`;
+
+      setTimeout(() => {
+        handleSpinResult(segments[winIdx]);
+      }, 4600);
+    }
+
+    function handleSpinResult(result) {
+      score = result.value;
+      finishGame(result.label);
+    }
+
+    function finishGame(resultLabel) {
+      document.getElementById('screen-game').style.display = 'none';
+      document.getElementById('screen-result').style.display = 'flex';
+      
+      const resultScore = document.getElementById('result-score');
+      const resultIcon = document.getElementById('result-icon');
+      const actionsDiv = document.getElementById('result-actions');
+
+      if (score === 0) {
+        resultScore.textContent = "Tough Luck!";
+        resultScore.style.color = "#ef4444";
+        resultIcon.textContent = "💔";
+        playSound('lose');
+        
+        // NO POINTS TO COLLECT - SKIP QR CODE
+        actionsDiv.innerHTML = `<button class="btn-primary" onclick="goBack()">Return to Home</button>`;
+        return;
+      } else {
+        resultScore.textContent = score + " pts";
+        resultScore.style.color = "var(--green)";
+        resultIcon.textContent = "🎉";
+        playSound('win');
+        launchConfetti(3000);
+      }
+
+      if (currentMode === 'challenge') {
+        processPoints();
+      } else {
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
+          <button class="btn-secondary" style="margin-top:10px;" onclick="goBack()">Play for fun (Exit)</button>
+        `;
+      }
+    }
+
+    function processPoints() {
+      if (score === 0) { goBack(); return; } // Extra safety check
+
+      const actionsDiv = document.getElementById('result-actions');
+      actionsDiv.innerHTML = "Processing...";
+
+      if (uid) {
+        window.location.href = `index.html?rewardGame=${GAME_ID}&rewardPts=${score}`;
+      } else {
+        const payload = JSON.stringify({ type: "game_reward", gameId: GAME_ID, points: score, nonce: Date.now() });
+        const qr = qrcode(0, 'L');
+        qr.addData(payload);
+        qr.make();
+        actionsDiv.innerHTML = `
+          <div style="background:white; padding:10px; display:inline-block; border-radius:10px; margin-bottom:10px;">
+            ${qr.createImgTag(5)}
+          </div>
+          <p style="color:var(--muted); font-size:0.9rem;">Scan this QR with your Haleon app to collect points.</p>
+          <button class="btn-secondary" style="margin-top:20px;" onclick="location.reload()">Start New Game</button>
+        `;
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast"); toast.textContent = msg; toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2000);
+    }
+  </script>
+</body>
+</html>
