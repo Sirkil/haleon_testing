@@ -29,13 +29,14 @@
   </style>
 </head>
 <body>
+  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998;display:none;"></canvas>
   <div class="toast" id="toast"></div>
 
   <div class="game-container" id="screen-start" style="text-align: center; justify-content: center; z-index: 20;">
     <div style="font-size: 5rem; margin-bottom: 20px;">🧺</div>
     <div class="auth-title">Catch & Win</div>
     <p style="color: var(--muted); margin-bottom: 30px; line-height: 1.5;">
-      Drag the basket to catch good items (+10 pts).<br>
+      Use the joystick (or drag) to catch good items (+10 pts).<br>
       Avoid bad items or missing good ones (-10 pts & lose 1 life).<br>
       You have 60 seconds and 3 lives!
     </p>
@@ -57,7 +58,7 @@
   </div>
 
   <div id="screen-game" style="display: none; position: fixed; inset: 0;">
-    <button class="btn-secondary" style="position:absolute; top:80px; left:20px; z-index: 10;" onclick="goBack()">← Exit Game</button>
+    <button class="btn-secondary" style="position:absolute; top:80px; left:20px; z-index: 10; width: auto; padding: 8px 16px;" onclick="goBack()">← Exit</button>
     <div class="catch-hud">
       <div class="catch-pill"><span style="color:var(--muted);font-size:0.8rem;">Time</span> <span id="hud-time">60s</span></div>
       <div class="catch-pill" style="color:var(--green); font-size:1.2rem;" id="hud-score">0</div>
@@ -79,6 +80,29 @@
   </div>
 
   <script>
+    function launchConfetti(duration) {
+      const canvas = document.getElementById("confetti-canvas");
+      if(!canvas) return;
+      const ctx = canvas.getContext("2d");
+      canvas.style.display = "block";
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const pieces = [];
+      const colors = ["#4ade80", "#22c55e", "#f0f4f8", "#facc15", "#60a5fa", "#f472b6"];
+      for (let i = 0; i < 100; i++) pieces.push({ x: Math.random() * canvas.width, y: -10 - Math.random() * 200, r: 4 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)], vx: (Math.random() - 0.5) * 4, vy: 2 + Math.random() * 4, rot: Math.random() * 360, rs: (Math.random() - 0.5) * 6 });
+      const end = Date.now() + duration;
+      (function frame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach((p) => {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((p.rot * Math.PI) / 180); ctx.fillStyle = p.color;
+          ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.6); ctx.restore();
+          p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += p.rs;
+        });
+        if (Date.now() < end) requestAnimationFrame(frame);
+        else { ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.style.display = "none"; }
+      })();
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const uid = urlParams.get('uid');
     const exhausted = urlParams.get('exhausted') === 'true';
@@ -104,8 +128,21 @@
     let items = [];
     let speedMultiplier = 1;
 
+    let keys = { a: false, l: false };
+    const basketSpeed = 10; 
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'a') keys.a = true;
+      if (e.key.toLowerCase() === 'l') keys.l = true;
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key.toLowerCase() === 'a') keys.a = false;
+      if (e.key.toLowerCase() === 'l') keys.l = false;
+    });
+
     function resizeCanvas() {
-      cw = window.innerWidth > 480 ? 480 : window.innerWidth;
+      cw = window.innerWidth > 600 ? 600 : window.innerWidth;
       ch = window.innerHeight;
       canvas.width = cw;
       canvas.height = ch;
@@ -145,7 +182,7 @@
     }
 
     function initGame() {
-      score = 0; lives = 3; timeLeft = 60; items = []; speedMultiplier = 1;
+      score = 0; lives = 3; timeLeft = 60; items = []; speedMultiplier = 1; keys = { a: false, l: false };
       updateHUD();
       document.querySelectorAll('.heart').forEach(h => h.classList.remove('lost'));
       
@@ -226,6 +263,13 @@
     }
 
     function gameLoop() {
+      if (keys.a) {
+        basket.x = Math.max(0, basket.x - basketSpeed);
+      }
+      if (keys.l) {
+        basket.x = Math.min(cw - basket.w, basket.x + basketSpeed);
+      }
+
       ctx.clearRect(0, 0, cw, ch);
       
       ctx.font = '50px sans-serif';
@@ -285,10 +329,14 @@
       document.getElementById('result-icon').textContent = survived ? "⏱️" : "💔";
       document.getElementById('result-score').textContent = score + " pts";
       
+      if (score > 0) launchConfetti(3000);
+
       const actionsDiv = document.getElementById('result-actions');
       
       if (currentMode === 'challenge') {
-        processPoints();
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
+        `;
       } else {
         actionsDiv.innerHTML = `
           <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>

@@ -199,7 +199,6 @@
     let isSpinning = false;
     let spinCount = 0;
 
-    // Removed "Try Again" - replaced with more points and one more "Tough Luck"
     const segments = [
       { label: '50 pts', value: 50, color: '#1e293b', text: '#4ade80' },
       { label: 'Tough Luck', value: 0, color: '#0f172a', text: '#ef4444' },
@@ -332,7 +331,9 @@
       }
 
       if (currentMode === 'challenge') {
-        processPoints();
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
+        `;
       } else {
         actionsDiv.innerHTML = `
           <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>

@@ -25,6 +25,7 @@
   </style>
 </head>
 <body>
+  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998;display:none;"></canvas>
   <div class="toast" id="toast"></div>
 
   <div class="game-container" id="screen-start" style="text-align: center; justify-content: center;">
@@ -203,9 +204,16 @@
       document.getElementById('screen-result').style.display = 'flex';
       document.getElementById('result-score').textContent = score + " pts";
 
+     // Trigger the confetti
+      launchConfetti(3000); 
+
+      // Give them a button to collect points instead of kicking them out instantly
       const actionsDiv = document.getElementById('result-actions');
-      if (currentMode === 'challenge') { processPoints(); } 
-      else {
+      if (currentMode === 'challenge') {
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
+        `;
+      } else {
         actionsDiv.innerHTML = `
           <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
           <button class="btn-secondary" style="margin-top:10px;" onclick="goBack()">Play for fun (Exit)</button>

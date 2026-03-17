@@ -143,67 +143,92 @@
       <div class="section-title">Your Badges</div>
       <div class="badges-row">
         <div class="badge-chip locked" id="badge-0" onclick="tryClaimBadge(0)">
-          <div class="badge-icon" style="background:rgba(74,222,128,0.06)">❤️</div>
+          <div class="badge-icon" style="background:rgba(74,222,128,0.06)">
+            <img src="assets/Health Advocate.png" alt="Health Advocate" style="width: 32px; height: 32px; object-fit: contain;">
+          </div>
           <div class="badge-name">Health Advocate</div>
           <div class="badge-pts">200 pts</div>
         </div>
         <div class="badge-chip locked" id="badge-1" onclick="tryClaimBadge(1)">
-          <div class="badge-icon" style="background:rgba(74,222,128,0.06)">🏃</div>
+          <div class="badge-icon" style="background:rgba(74,222,128,0.06)">
+            <img src="assets/Daily Mover.png" alt="Daily Mover" style="width: 32px; height: 32px; object-fit: contain;">
+          </div>
           <div class="badge-name">Daily Mover</div>
           <div class="badge-pts">400 pts</div>
         </div>
         <div class="badge-chip locked" id="badge-2" onclick="tryClaimBadge(2)">
-          <div class="badge-icon" style="background:rgba(74,222,128,0.06)">🌿</div>
+          <div class="badge-icon" style="background:rgba(74,222,128,0.06)">
+            <img src="assets/Wellness Leader.png" alt="Wellness Leader" style="width: 32px; height: 32px; object-fit: contain;">
+          </div>
           <div class="badge-name">Wellness Leader</div>
           <div class="badge-pts">600 pts</div>
         </div>
       </div>
     </div>
     
-<div class="section-title" style="padding: 0 24px;">Games Hub</div>
+    <div class="section-title" style="padding: 0 24px;">Games Hub</div>
       <div class="quiz-grid" id="games-grid">
         <div class="quiz-grid-card" onclick="openGame('game_basket.html', 'basket')">
-          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa; color:#60a5fa;">🛒</div>
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa;">
+            <img src="assets/Build Basket.png" alt="Build Basket" style="width: 28px; height: 28px; object-fit: contain;">
+          </div>
           <div class="quiz-grid-label">Build Basket</div>
           <div class="quiz-grid-status" id="gstatus-basket">Play</div>
         </div>
         <div class="quiz-grid-card" onclick="openGame('game_myth.html', 'myth')">
-          <div class="quiz-grid-num" style="background:rgba(244, 114, 182, 0.15); border-color:#f472b6; color:#f472b6;">🤔</div>
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa;">
+            <img src="assets/Myth & Fact.png" alt="Myth vs Fact" style="width: 28px; height: 28px; object-fit: contain;">
+          </div>
           <div class="quiz-grid-label">Myth vs Fact</div>
           <div class="quiz-grid-status" id="gstatus-myth">Play</div>
         </div>
+
         <div class="quiz-grid-card" onclick="openGame('game_buzzer.html', 'buzzer')">
-          <div class="quiz-grid-num" style="background:rgba(250, 204, 21, 0.15); border-color:#facc15; color:#facc15;">🚨</div>
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa;">
+            <img src="assets/Buzzer Battle.png" alt="Buzzer Battle" style="width: 28px; height: 28px; object-fit: contain;">
+          </div>
           <div class="quiz-grid-label">Buzzer Battle</div>
           <div class="quiz-grid-status" id="gstatus-buzzer">Play</div>
         </div>
         <div class="quiz-grid-card" onclick="openGame('game_memory.html', 'memory')">
-          <div class="quiz-grid-num" style="background:rgba(74, 222, 128, 0.15); border-color:var(--green); color:var(--green);">🧠</div>
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa;">
+            <img src="assets/Memory Challenge.png" alt="Memory Challenge" style="width: 28px; height: 28px; object-fit: contain;">
+          </div>
           <div class="quiz-grid-label">Memory Challenge</div>
           <div class="quiz-grid-status" id="gstatus-memory">Play</div>
         </div>
         <div class="quiz-grid-card" onclick="openGame('game_catch.html', 'catch')">
-          <div class="quiz-grid-num" style="background:rgba(167, 139, 250, 0.15); border-color:#a78bfa; color:#a78bfa;">🧺</div>
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa;">
+            <img src="assets/Catch.png" alt="Catch & Win" style="width: 28px; height: 28px; object-fit: contain;">
+          </div>
           <div class="quiz-grid-label">Catch & Win</div>
           <div class="quiz-grid-status" id="gstatus-catch">Play</div>
         </div>
         <div class="quiz-grid-card" onclick="openGame('game_prescription.html', 'prescription')">
-          <div class="quiz-grid-num" style="background:rgba(248, 113, 113, 0.15); border-color:#f87171; color:#f87171;">📋</div>
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa;">
+            <img src="assets/Rx Challenge.png" alt="Rx Challenge" style="width: 28px; height: 28px; object-fit: contain;">
+          </div>
           <div class="quiz-grid-label">Rx Challenge</div>
           <div class="quiz-grid-status" id="gstatus-prescription">Play</div>
         </div>
         <div class="quiz-grid-card" onclick="openGame('game_placement.html', 'placement')">
-          <div class="quiz-grid-num" style="background:rgba(56, 189, 248, 0.15); border-color:#38bdf8; color:#38bdf8;">🏬</div>
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa;">
+            <img src="assets/Best Place.png" alt="Best Place" style="width: 28px; height: 28px; object-fit: contain;">
+          </div>
           <div class="quiz-grid-label">Best Place</div>
           <div class="quiz-grid-status" id="gstatus-placement">Play</div>
         </div>
         <div class="quiz-grid-card" onclick="openGame('game_mitohype.html', 'mitohype')">
-          <div class="quiz-grid-num" style="background:rgba(251, 146, 60, 0.15); border-color:#fb923c; color:#fb923c;">🎮</div>
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa;">
+            <img src="assets/Panadol Challenge.png" alt="Panadol Game" style="width: 28px; height: 28px; object-fit: contain;">
+          </div>
           <div class="quiz-grid-label">Panadol Game</div>
           <div class="quiz-grid-status" id="gstatus-mitohype">Play</div>
         </div>
         <div class="quiz-grid-card" onclick="openGame('game_spin.html', 'spin')">
-          <div class="quiz-grid-num" style="background:rgba(236, 72, 153, 0.15); border-color:#ec4899; color:#ec4899;">🎡</div>
+          <div class="quiz-grid-num" style="background:rgba(96, 165, 250, 0.15); border-color:#60a5fa;">
+            <img src="assets/Spin to Win.png" alt="Spin to Win" style="width: 28px; height: 28px; object-fit: contain;">
+          </div>
           <div class="quiz-grid-label">Spin to Win</div>
           <div class="quiz-grid-status" id="gstatus-spin">Play</div>
         </div>
@@ -247,19 +272,20 @@
       <div class="section-title">Rewards Preview</div>
       <div class="rewards-grid">
         <div class="reward-card">
-          <div class="reward-img">🧪</div>
-          <div class="reward-info">
-            <div class="reward-title">Haleon Lab Flask</div>
-            <button class="redeem-btn" id="home-redeem-flask" disabled onclick="openRedeemQR('flask','Haleon Lab Flask',300)">300 Pts — Redeem</button>
-          </div>
-        </div>
-        <div class="reward-card">
           <div class="reward-img">🖊️</div>
           <div class="reward-info">
             <div class="reward-title">Haleon Branded Pen</div>
             <button class="redeem-btn" id="home-redeem-pen" disabled onclick="openRedeemQR('pen','Haleon Branded Pen',100)">100 Pts — Redeem</button>
           </div>
         </div>
+        <div class="reward-card">
+          <div class="reward-img">🧪</div>
+          <div class="reward-info">
+            <div class="reward-title">Haleon Flask</div>
+            <button class="redeem-btn" id="home-redeem-flask" disabled onclick="openRedeemQR('flask','Haleon Lab Flask',300)">300 Pts — Redeem</button>
+          </div>
+        </div>
+      
       </div>
     </div>
   </div>
@@ -372,7 +398,9 @@
 
   <div class="dialog-overlay" id="badge-dialog" onclick="closeBadgeDialog()">
     <div class="dialog-box" onclick="event.stopPropagation()">
-      <div class="dialog-icon" id="badge-dialog-icon">❤️</div>
+      <div class="dialog-icon" id="badge-dialog-icon">
+        <img src="assets/Health Advocate.png" alt="Badge" style="width: 60px; height: 60px; object-fit: contain;">
+      </div>
       <div class="dialog-title">Badge Claimed! 🎉</div>
       <div class="dialog-msg" id="badge-dialog-name">Health Advocate</div>
       <div class="dialog-sub">You've earned this badge. Congrats!</div>

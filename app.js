@@ -18,10 +18,11 @@ function makeQRUrl(data, size = 200) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
 }
 
+// Renamed from 'badges' to 'badgeDefs' and uses 'image' property
 const badgeDefs = [
-  { id: 0, icon: "❤️", name: "Health Advocate", pts: 200 },
-  { id: 1, icon: "🏃", name: "Daily Mover", pts: 400 },
-  { id: 2, icon: "🌿", name: "Wellness Leader", pts: 600 },
+  { id: 0, name: 'Health Advocate', image: 'assets/Health Advocate.png', pts: 200 },
+  { id: 1, name: 'Daily Mover', image: 'assets/Daily Mover.png', pts: 400 },
+  { id: 2, name: 'Wellness Leader', image: 'assets/Wellness Leader.png', pts: 600 }
 ];
 
 const rewardsData = [
@@ -53,6 +54,7 @@ window.bootApp = function (uid, data, showWelcome) {
       state.gamesCompleted[rGame] = true;
       saveToFirebase(); 
       setTimeout(() => showToast(`Success! +${rPts} points added.`), 500);
+      setTimeout(() => checkBadgeUnlocks(), 1200);
     } else {
       setTimeout(() => showToast("Points already claimed for this game."), 500);
     }
@@ -196,8 +198,34 @@ async function processGameQR(raw) {
 }
 
 function updateBadgeStates() { badgeDefs.forEach((b) => { const chip = document.getElementById("badge-" + b.id); if (!chip) return; if (state.claimedBadges.includes(b.id)) chip.className = "badge-chip claimed"; else if (state.score >= b.pts) chip.className = "badge-chip claimable"; else chip.className = "badge-chip locked"; }); }
-function checkBadgeUnlocks() { const newlyUnlocked = badgeDefs.filter((b) => !state.claimedBadges.includes(b.id) && state.score >= b.pts); if (newlyUnlocked.length === 0) return; newlyUnlocked.forEach((b) => state.claimedBadges.push(b.id)); updateBadgeStates(); const b = newlyUnlocked[0]; setTimeout(() => { document.getElementById("badge-dialog-icon").textContent = b.icon; document.getElementById("badge-dialog-name").textContent = b.name; document.getElementById("badge-dialog").classList.add("open"); launchConfetti(4000); }, 2200); saveToFirebase(); }
-window.tryClaimBadge = async function(id) { const b = badgeDefs[id]; if (state.claimedBadges.includes(id) || state.score < b.pts) return; state.claimedBadges.push(id); updateBadgeStates(); document.getElementById("badge-dialog-icon").textContent = b.icon; document.getElementById("badge-dialog-name").textContent = b.name; document.getElementById("badge-dialog").classList.add("open"); launchConfetti(3000); await saveToFirebase(); };
+
+function checkBadgeUnlocks() { 
+  const newlyUnlocked = badgeDefs.filter((b) => !state.claimedBadges.includes(b.id) && state.score >= b.pts); 
+  if (newlyUnlocked.length === 0) return; 
+  newlyUnlocked.forEach((b) => state.claimedBadges.push(b.id)); 
+  updateBadgeStates(); 
+  const b = newlyUnlocked[0]; 
+  setTimeout(() => { 
+    document.getElementById("badge-dialog-icon").innerHTML = `<img src="${b.image}" alt="Badge" style="width: 60px; height: 60px; object-fit: contain;">`;
+    document.getElementById("badge-dialog-name").textContent = b.name; 
+    document.getElementById("badge-dialog").classList.add("open"); 
+    launchConfetti(4000); 
+  }, 2200); 
+  saveToFirebase(); 
+}
+
+window.tryClaimBadge = async function(id) { 
+  const b = badgeDefs[id]; 
+  if (state.claimedBadges.includes(id) || state.score < b.pts) return; 
+  state.claimedBadges.push(id); 
+  updateBadgeStates(); 
+  document.getElementById("badge-dialog-icon").innerHTML = `<img src="${b.image}" alt="Badge" style="width: 60px; height: 60px; object-fit: contain;">`;
+  document.getElementById("badge-dialog-name").textContent = b.name; 
+  document.getElementById("badge-dialog").classList.add("open"); 
+  launchConfetti(3000); 
+  await saveToFirebase(); 
+};
+
 window.closeWelcomeDialog = function() { document.getElementById("welcome-dialog").classList.remove("open"); };
 window.closeBadgeDialog = function() { document.getElementById("badge-dialog").classList.remove("open"); updateHomeUI(); if (document.getElementById("view-profile").classList.contains("active")) updateProfilePage(); };
 
@@ -214,9 +242,57 @@ window.closeQRDialog = function() { stopRedeemListener(); if (qrTimerInterval) c
 function showRedeemSuccess(reward, pts, newScore) { closeQRDialog(); state.score = newScore; updateHomeUI(); renderRewardsPage(); if (document.getElementById('view-profile')?.classList.contains('active')) updateProfilePage(); document.getElementById('redeem-success-reward').textContent = reward; document.getElementById('redeem-success-pts').textContent = '−' + pts + ' pts deducted · New balance: ' + newScore.toLocaleString() + ' pts'; document.getElementById('redeem-success-dialog').classList.add('open'); launchConfetti(3000); }
 window.closeRedeemSuccessDialog = function() { document.getElementById('redeem-success-dialog').classList.remove('open'); };
 
-function updateProfilePage() { if (!state.user) return; const tier = getTier(); const frontBg = document.getElementById('card-front-bg'); if (frontBg) frontBg.src = tier.front; const backBg = document.getElementById('card-back-bg'); if (backBg) backBg.src = tier.back; document.getElementById('card-name-back').textContent = state.user.name; document.getElementById('card-num-back').textContent = state.user.memberId || '——'; const memberPayload = JSON.stringify({ uid: state.uid, memberId: state.user.memberId, name: state.user.name, email: state.user.email, phone: state.user.phone, pharmacy: state.user.pharmacy }); const cardImg = document.getElementById('card-qr-img'); if (cardImg) cardImg.src = makeQRUrl(memberPayload, 160) + '&t=' + Date.now(); document.getElementById('stat-pts').textContent = state.score.toLocaleString(); document.getElementById('stat-quizzes').textContent = Object.keys(state.gamesCompleted || {}).length; document.getElementById('stat-tier').textContent = tier.name; document.getElementById('info-name').textContent = state.user.name; document.getElementById('info-email').textContent = state.user.email; document.getElementById('info-phone').textContent = state.user.phone || '—'; document.getElementById('info-pharmacy').textContent = state.user.pharmacy || '—'; const badgesEl = document.getElementById('profile-badges'); if (state.claimedBadges.length === 0) badgesEl.innerHTML = '<div class="profile-badge-empty">No badges claimed yet. Earn points to unlock!</div>'; else badgesEl.innerHTML = state.claimedBadges.map(id => { const b = badgeDefs.find(d => d.id === id); return b ? `<div class="profile-badge-item">${b.icon} ${b.name}</div>` : ''; }).join(''); }
+function updateProfilePage() { 
+  if (!state.user) return; 
+  const tier = getTier(); 
+  const frontBg = document.getElementById('card-front-bg'); if (frontBg) frontBg.src = tier.front; 
+  const backBg = document.getElementById('card-back-bg'); if (backBg) backBg.src = tier.back; 
+  document.getElementById('card-name-back').textContent = state.user.name; 
+  document.getElementById('card-num-back').textContent = state.user.memberId || '——'; 
+  const memberPayload = JSON.stringify({ uid: state.uid, memberId: state.user.memberId, name: state.user.name, email: state.user.email, phone: state.user.phone, pharmacy: state.user.pharmacy }); 
+  const cardImg = document.getElementById('card-qr-img'); if (cardImg) cardImg.src = makeQRUrl(memberPayload, 160) + '&t=' + Date.now(); 
+  document.getElementById('stat-pts').textContent = state.score.toLocaleString(); 
+  document.getElementById('stat-quizzes').textContent = Object.keys(state.gamesCompleted || {}).length; 
+  document.getElementById('stat-tier').textContent = tier.name; 
+  document.getElementById('info-name').textContent = state.user.name; 
+  document.getElementById('info-email').textContent = state.user.email; 
+  document.getElementById('info-phone').textContent = state.user.phone || '—'; 
+  document.getElementById('info-pharmacy').textContent = state.user.pharmacy || '—'; 
+  
+  const badgesEl = document.getElementById('profile-badges'); 
+  if (state.claimedBadges.length === 0) {
+    badgesEl.innerHTML = '<div class="profile-badge-empty">No badges claimed yet. Earn points to unlock!</div>'; 
+  } else {
+    badgesEl.innerHTML = state.claimedBadges.map(id => { 
+      const b = badgeDefs.find(d => d.id === id); 
+      return b ? `<div class="profile-badge-item" style="display: flex; align-items: center; gap: 8px;"><img src="${b.image}" alt="${b.name}" style="width: 20px; height: 20px; object-fit: contain;"> ${b.name}</div>` : ''; 
+    }).join(''); 
+  }
+}
+
 window.flipCard = function() { document.getElementById("card-inner").classList.toggle("flipped"); };
 
-function launchConfetti(duration) { const canvas = document.getElementById("confetti-canvas"); const ctx = canvas.getContext("2d"); canvas.style.display = "block"; canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; const pieces = []; const colors = ["#4ade80", "#22c55e", "#f0f4f8", "#facc15", "#60a5fa", "#f472b6"]; for (let i = 0; i < 130; i++) pieces.push({ x: Math.random() * canvas.width, y: -10 - Math.random() * 200, r: 4 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)], vx: (Math.random() - 0.5) * 4, vy: 2 + Math.random() * 4, rot: Math.random() * 360, rs: (Math.random() - 0.5) * 6 }); const end = Date.now() + duration; (function frame() { ctx.clearRect(0, 0, canvas.width, canvas.height); pieces.forEach((p) => { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((p.rot * Math.PI) / 180); ctx.fillStyle = p.color; ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.6); ctx.restore(); p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += p.rs; }); if (Date.now() < end) requestAnimationFrame(frame); else { ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.style.display = "none"; } })(); }
+function launchConfetti(duration) {
+  const canvas = document.getElementById("confetti-canvas");
+  if(!canvas) return;
+  const ctx = canvas.getContext("2d");
+  canvas.style.display = "block";
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const pieces = [];
+  const colors = ["#4ade80", "#22c55e", "#f0f4f8", "#facc15", "#60a5fa", "#f472b6"];
+  for (let i = 0; i < 100; i++) pieces.push({ x: Math.random() * canvas.width, y: -10 - Math.random() * 200, r: 4 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)], vx: (Math.random() - 0.5) * 4, vy: 2 + Math.random() * 4, rot: Math.random() * 360, rs: (Math.random() - 0.5) * 6 });
+  const end = Date.now() + duration;
+  (function frame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach((p) => {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((p.rot * Math.PI) / 180); ctx.fillStyle = p.color;
+      ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.6); ctx.restore();
+      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += p.rs;
+    });
+    if (Date.now() < end) requestAnimationFrame(frame);
+    else { ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.style.display = "none"; }
+  })();
+}
 window.showToast = function(msg) { const toast = document.getElementById("toast"); toast.textContent = msg; toast.classList.add("show"); setTimeout(() => toast.classList.remove("show"), 2400); };
 window.addEventListener("DOMContentLoaded", () => { startCarousel(); const lbl = document.querySelector('.progress-label'); if(lbl) lbl.textContent = "Games Completed"; });

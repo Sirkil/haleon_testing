@@ -3,12 +3,12 @@
    ════════════════════════════════════════ */
 
 :root {
-  --bg: #0a0d0f;
+  --bg: #000000;
   --surface: #111418;
   --surface2: #181c21;
   --border: #1e2329;
-  --green: #4ade80;
-  --green-dark: #22c55e;
+  --green: #2ee701;
+  --green-dark: #2ee701;
   --green-dim: rgba(74, 222, 128, 0.12);
   --text: #f0f4f8;
   --muted: #6b7a8d;

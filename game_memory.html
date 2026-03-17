@@ -73,6 +73,7 @@
   </style>
 </head>
 <body>
+  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9998;display:none;"></canvas>
   <div class="toast" id="toast"></div>
 
   <div class="game-container" id="screen-start" style="text-align: center; justify-content: center;">
@@ -124,6 +125,29 @@
   </div>
 
   <script>
+    function launchConfetti(duration) {
+      const canvas = document.getElementById("confetti-canvas");
+      if(!canvas) return;
+      const ctx = canvas.getContext("2d");
+      canvas.style.display = "block";
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const pieces = [];
+      const colors = ["#4ade80", "#22c55e", "#f0f4f8", "#facc15", "#60a5fa", "#f472b6"];
+      for (let i = 0; i < 100; i++) pieces.push({ x: Math.random() * canvas.width, y: -10 - Math.random() * 200, r: 4 + Math.random() * 6, color: colors[Math.floor(Math.random() * colors.length)], vx: (Math.random() - 0.5) * 4, vy: 2 + Math.random() * 4, rot: Math.random() * 360, rs: (Math.random() - 0.5) * 6 });
+      const end = Date.now() + duration;
+      (function frame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach((p) => {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((p.rot * Math.PI) / 180); ctx.fillStyle = p.color;
+          ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.6); ctx.restore();
+          p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += p.rs;
+        });
+        if (Date.now() < end) requestAnimationFrame(frame);
+        else { ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.style.display = "none"; }
+      })();
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const uid = urlParams.get('uid');
     const exhausted = urlParams.get('exhausted') === 'true';
@@ -275,6 +299,7 @@
         document.getElementById('result-score').textContent = score + " pts";
         document.getElementById('result-breakdown').textContent = `Base: ${baseScore} + Time Bonus: ${timeBonus} (${timeLeft}s left)`;
         document.getElementById('result-score').style.color = "var(--green)";
+        launchConfetti(3000);
       } else {
         score = 0;
         document.getElementById('result-title').textContent = "Time's Up!";
@@ -287,7 +312,9 @@
       const actionsDiv = document.getElementById('result-actions');
       
       if (currentMode === 'challenge' && isWin) {
-        processPoints();
+        actionsDiv.innerHTML = `
+          <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
+        `;
       } else if (currentMode === 'test' && isWin) {
         actionsDiv.innerHTML = `
           <button class="btn-primary" onclick="processPoints()">Collect Points & Complete</button>
